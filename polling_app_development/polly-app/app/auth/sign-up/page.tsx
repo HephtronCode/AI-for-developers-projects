@@ -7,9 +7,11 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
+import { useAuth } from '../../../contexts/auth-context';
 
 export default function SignUp() {
   const router = useRouter();
+  const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,16 +20,23 @@ export default function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (password !== confirmPassword) {
+      alert("Passwords do not match.");
+      return;
+    }
+
     setIsLoading(true);
-    
-    // This is a placeholder for actual registration logic
-    console.log('Sign up with:', { name, email, password });
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      await signUp(name, email, password);
+      alert('Registration successful! Please check your email to confirm your account.');
       router.push('/auth/sign-in');
-    }, 1000);
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

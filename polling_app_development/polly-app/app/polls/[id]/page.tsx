@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
+import { useAuth } from '../../../contexts/auth-context';
 
 type Option = {
   id: string;
@@ -24,11 +25,18 @@ type Poll = {
 
 export default function PollPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.push('/auth/sign-in');
+    }
+  }, [isAuthLoading, user, router]);
 
   useEffect(() => {
     // This is a placeholder for actual API call
@@ -98,12 +106,16 @@ export default function PollPage({ params }: { params: { id: string } }) {
     }
   };
 
-  if (isLoading) {
+  if (isAuthLoading || isLoading) {
     return (
       <div className="container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-6">Loading poll...</h1>
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   if (!poll) {

@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
+import { useAuth } from '../../../contexts/auth-context';
 
 export default function SignIn() {
-  const router = useRouter();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -17,15 +17,14 @@ export default function SignIn() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // This is a placeholder for actual authentication logic
-    console.log('Sign in with:', { email, password });
-    
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      await signIn(email, password);
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
       setIsLoading(false);
-      router.push('/');
-    }, 1000);
+    }
   };
 
   return (

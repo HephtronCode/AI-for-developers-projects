@@ -6,7 +6,8 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 
 export default function Home() {
-  const { user } = useAuth();
+  const { session } = useAuth();
+  const user = session?.user;
 
   return (
     <div className="container mx-auto px-4 py-12">

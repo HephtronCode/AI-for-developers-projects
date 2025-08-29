@@ -8,7 +8,8 @@ import { Button } from './ui/button';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
+  const { session, signOut } = useAuth();
+  const user = session?.user;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => {
@@ -55,7 +56,7 @@ export default function Navbar() {
                 <Button variant="ghost" onClick={handleSignOut}>
                   Sign Out
                 </Button>
-                <span className="text-sm font-medium">{user.name}</span>
+                <span className="text-sm font-medium">{user.email}</span>
               </>
             ) : (
               <>
@@ -133,7 +134,7 @@ export default function Navbar() {
                   Sign Out
                 </button>
                 <div className="px-3 py-2 text-sm font-medium">
-                  Signed in as: {user.name}
+                  Signed in as: {user.email}
                 </div>
               </>
             ) : (

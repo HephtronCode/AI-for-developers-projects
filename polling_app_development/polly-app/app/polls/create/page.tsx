@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
+import { useAuth } from '../../../contexts/auth-context';
 
 type PollOption = {
   id: string;
@@ -15,6 +16,8 @@ type PollOption = {
 
 export default function CreatePollPage() {
   const router = useRouter();
+  const { session, isLoading } = useAuth();
+  const user = session?.user;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [options, setOptions] = useState<PollOption[]>([
@@ -22,6 +25,20 @@ export default function CreatePollPage() {
     { id: '2', text: '' },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/auth/sign-in');
+    }
+  }, [isLoading, user, router]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const handleAddOption = () => {
     setOptions([...options, { id: `${options.length + 1}`, text: '' }]);
