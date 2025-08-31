@@ -57,61 +57,79 @@ export default function PollCard({ poll, currentUser }: PollCardProps) {
   const isPollOwner = currentUser && poll.created_by === currentUser.id;
 
   return (
-    <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden group cursor-pointer">
       <Link href={`/polls/${poll.id}`}>
-        <CardHeader>
-          <div className="flex justify-between items-start">
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-4">
             <div className="flex-1">
-              <CardTitle className="line-clamp-2">{poll.title}</CardTitle>
-              <CardDescription>
-                Created on {new Date(poll.created_at).toLocaleDateString('en-US', {
+              <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
+                {poll.title}
+              </h3>
+              <div className="flex items-center text-sm text-gray-500">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {new Date(poll.created_at).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric'
                 })}
-              </CardDescription>
+              </div>
             </div>
             {isPollOwner && (
-              <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Link href={`/polls/${poll.id}/edit`} onClick={(e) => e.stopPropagation()}>
-                  <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                    ✏️
-                  </Button>
+                  <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
                 </Link>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                <button 
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                   onClick={handleDeletePoll}
                   disabled={isDeleting}
                 >
                   {isDeleting ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
                   ) : (
-                    '🗑️'
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
                   )}
-                </Button>
+                </button>
               </div>
             )}
           </div>
-        </CardHeader>
-        
-        <CardContent>
-          <p className="text-sm text-muted-foreground line-clamp-3">
-            {poll.description || 'No description'}
+          
+          <p className="text-gray-600 line-clamp-3 mb-4">
+            {poll.description || 'No description provided'}
           </p>
-        </CardContent>
-        
-        <CardFooter className="flex justify-between">
-          <div className="flex gap-4 text-sm text-muted-foreground">
-            <span>{poll.votes_count} votes</span>
-            <span>{poll.options_count} options</span>
+          
+          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+            <div className="flex items-center space-x-4 text-sm text-gray-500">
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {poll.votes_count} votes
+              </div>
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                {poll.options_count} options
+              </div>
+            </div>
+            <div className="flex items-center text-blue-600 font-medium text-sm group-hover:text-blue-700 transition-colors">
+              View Poll
+              <svg className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
           </div>
-          <Button size="sm" variant="outline">
-            View Poll
-          </Button>
-        </CardFooter>
+        </div>
       </Link>
-    </Card>
+    </div>
   );
 }
