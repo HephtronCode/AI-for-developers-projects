@@ -3,57 +3,96 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
-import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
-import { useAuth } from '../../../contexts/auth-context';
-import { createPoll } from '../../../lib/actions/create-poll';
-import { toast } from '../../../components/ui/use-toast';
-import { Textarea } from '../../../components/ui/textarea';
+import { Button } from '../../../../components/ui/button';
+import { Input } from '../../../../components/ui/input';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '../../../../components/ui/form';
+import { useAuth } from '../../../../contexts/auth-context';
+import { getPollById } from '../../../../lib/actions/get-polls';
+import { updatePoll } from '../../../../lib/actions/poll-actions';
+import { toast } from '../../../../components/ui/use-toast';
+import { Textarea } from '../../../../components/ui/textarea';
 
 type PollOption = {
   id: string;
   text: string;
 };
 
-export default function CreatePollPage() {
+export default function EditPollPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { session, isLoading } = useAuth();
   const user = session?.user;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [options, setOptions] = useState<PollOption[]>([
-    { id: '1', text: '' },
-    { id: '2', text: '' },
-  ]);
+  const [options, setOptions] = useState<PollOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const resetForm = () => {
-    setTitle('');
-    setDescription('');
-    setOptions([
-      { id: '1', text: '' },
-      { id: '2', text: '' },
-    ]);
-  };
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/auth/sign-in');
+      return;
     }
-  }, [isLoading, user, router]);
+
+    if (user) {
+      loadPoll();
+    }
+  }, [isLoading, user, router, params.id]);
+
+  const loadPoll = async () => {
+    try {
+      const { poll, error: pollError } = await getPollById(params.id);
+      
+      if (pollError || !poll) {
+        setError(pollError || 'Poll not found');
+        return;
+      }
+
+      // Check if user owns this poll
+      if (poll.created_by !== user?.id) {
+        setError('You can only edit your own polls');
+        return;
+      }
+
+      setTitle(poll.title);
+      setDescription(poll.description || '');
+      setOptions(poll.options.map(opt => ({
+        id: opt.id,
+        text: opt.text
+      })));
+    } catch (error) {
+      console.error('Error loading poll:', error);
+      setError('Failed to load poll');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div className="container mx-auto p-4">Loading...</div>;
   }
 
   if (!user) {
     return null;
   }
 
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="text-center py-10">
+          <h2 className="text-2xl font-bold mb-4">Error</h2>
+          <p className="text-red-500 mb-4">{error}</p>
+          <Link href="/polls">
+            <Button>Back to Polls</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const handleAddOption = () => {
-    setOptions([...options, { id: `${options.length + 1}`, text: '' }]);
+    setOptions([...options, { id: `${Date.now()}`, text: '' }]);
   };
 
   const handleRemoveOption = (id: string) => {
@@ -99,36 +138,32 @@ export default function CreatePollPage() {
       // Format options for the server action
       const formattedOptions = options.map(option => ({ text: option.text.trim() }));
       
-      // Call the server action to create the poll
-      const result = await createPoll({
+      // Call the server action to update the poll
+      const result = await updatePoll(params.id, {
         title: title.trim(),
         description: description.trim() || undefined,
         options: formattedOptions
       });
       
       if (result.success) {
-        // Reset form state
-        resetForm();
-        setIsSubmitting(false);
-        
         toast({
-          title: "🎉 Poll Created Successfully!",
-          description: "Your poll has been created and is now available for voting.",
+          title: "✅ Poll Updated Successfully!",
+          description: "Your poll has been updated and is now available for voting.",
           duration: 3000
         });
         
         // Small delay to ensure the toast is visible before redirecting
         setTimeout(() => {
-          router.push('/polls');
+          router.push(`/polls/${params.id}`);
         }, 1500);
       } else {
-        throw new Error(result.error || "Failed to create poll");
+        throw new Error(result.error || "Failed to update poll");
       }
     } catch (error) {
-      console.error('Failed to create poll:', error);
+      console.error('Failed to update poll:', error);
       toast({
-        title: "❌ Error Creating Poll",
-        description: error instanceof Error ? error.message : "Failed to create poll. Please try again.",
+        title: "❌ Error Updating Poll",
+        description: error instanceof Error ? error.message : "Failed to update poll. Please try again.",
         variant: "destructive",
         duration: 5000
       });
@@ -138,15 +173,15 @@ export default function CreatePollPage() {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl">
-      <Link href="/polls" className="mb-4 inline-block">
-        <Button variant="outline">← Back to Polls</Button>
+      <Link href={`/polls/${params.id}`} className="mb-4 inline-block">
+        <Button variant="outline">← Back to Poll</Button>
       </Link>
       
       <Card className="mt-4">
         <CardHeader>
-          <CardTitle>Create New Poll</CardTitle>
+          <CardTitle>Edit Poll</CardTitle>
           <CardDescription>
-            Fill in the details below to create a new poll
+            Update your poll details below
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -219,10 +254,10 @@ export default function CreatePollPage() {
               {isSubmitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creating Poll...
+                  Updating Poll...
                 </>
               ) : (
-                'Create Poll'
+                'Update Poll'
               )}
             </Button>
           </CardFooter>
