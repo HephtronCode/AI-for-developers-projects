@@ -1,9 +1,14 @@
 import { getPolls, getPollById } from '../get-polls';
 import { createServerSupabaseClient } from '../../supabase-server';
+import { getCurrentUser } from '../auth';
 
 // Mock dependencies
 jest.mock('../../supabase-server', () => ({
   createServerSupabaseClient: jest.fn(),
+}));
+
+jest.mock('../auth', () => ({
+  getCurrentUser: jest.fn(),
 }));
 
 describe('Get Polls Actions', () => {
@@ -14,18 +19,18 @@ describe('Get Polls Actions', () => {
 
   describe('getPolls', () => {
     it('should return empty array if no polls are found', async () => {
+      // Mock getCurrentUser
+      (getCurrentUser as jest.Mock).mockResolvedValue({ user: { id: 'user-123' }, error: null });
+      
       // Mock Supabase client with no polls
       const mockSupabase = {
-        auth: {
-          getSession: jest.fn().mockResolvedValue({
-            data: { session: { user: { id: 'user-123' } } },
-          }),
-        },
         from: jest.fn().mockReturnValue({
           select: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
-              data: [],
-              error: null,
+            order: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue({
+                data: [],
+                error: null,
+              }),
             }),
           }),
         }),
@@ -40,13 +45,11 @@ describe('Get Polls Actions', () => {
     });
 
     it('should return error if polls fetch fails', async () => {
+      // Mock getCurrentUser
+      (getCurrentUser as jest.Mock).mockResolvedValue({ user: { id: 'user-123' }, error: null });
+      
       // Mock Supabase client with error
       const mockSupabase = {
-        auth: {
-          getSession: jest.fn().mockResolvedValue({
-            data: { session: { user: { id: 'user-123' } } },
-          }),
-        },
         from: jest.fn().mockReturnValue({
           select: jest.fn().mockReturnValue({
             order: jest.fn().mockResolvedValue({
@@ -66,6 +69,9 @@ describe('Get Polls Actions', () => {
     });
 
     it('should return polls with option and vote counts', async () => {
+      // Mock getCurrentUser
+      (getCurrentUser as jest.Mock).mockResolvedValue({ user: { id: 'user-123' }, error: null });
+      
       // Mock poll data
       const mockPolls = [
         {
@@ -100,11 +106,6 @@ describe('Get Polls Actions', () => {
 
       // Mock Supabase client with successful responses
       const mockSupabase = {
-        auth: {
-          getSession: jest.fn().mockResolvedValue({
-            data: { session: { user: { id: 'user-123' } } },
-          }),
-        },
         from: jest.fn().mockImplementation((table) => {
           if (table === 'polls') {
             return {
@@ -174,6 +175,7 @@ describe('Get Polls Actions', () => {
       // Assertions
       expect(result).toEqual({
         poll: null,
+        options: [],
         error: 'Failed to fetch poll',
       });
     });

@@ -1,6 +1,7 @@
 import { createPoll } from '../create-poll';
 import { createServerSupabaseClient } from '../../supabase-server';
 import { revalidatePath } from 'next/cache';
+import { getCurrentUser } from '../auth';
 
 // Mock dependencies
 jest.mock('../../supabase-server', () => ({
@@ -9,6 +10,10 @@ jest.mock('../../supabase-server', () => ({
 
 jest.mock('next/cache', () => ({
   revalidatePath: jest.fn(),
+}));
+
+jest.mock('../auth', () => ({
+  getCurrentUser: jest.fn(),
 }));
 
 describe('Create Poll Action', () => {
@@ -23,29 +28,26 @@ describe('Create Poll Action', () => {
     options: [{ text: 'Option 1' }, { text: 'Option 2' }],
   };
 
-  it('should throw error if user is not logged in', async () => {
-    // Mock Supabase client with no session
-    const mockSupabase = {
-      auth: {
-        getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
-      },
-    };
-    (createServerSupabaseClient as jest.Mock).mockReturnValue(mockSupabase);
+  it('should return error if user is not logged in', async () => {
+    // Mock getCurrentUser with no user
+    (getCurrentUser as jest.Mock).mockResolvedValue({ user: null, error: 'Not authenticated' });
 
-    // Call the function and expect it to throw
-    await expect(createPoll(mockPollData)).rejects.toThrow(
-      'You must be logged in to create a poll'
-    );
+    // Call the function
+    const result = await createPoll(mockPollData);
+
+    // Assertions
+    expect(result).toEqual({
+      success: false,
+      error: 'You must be logged in to create a poll',
+    });
   });
 
   it('should return error if poll creation fails', async () => {
-    // Mock Supabase client with session but poll creation fails
+    // Mock getCurrentUser with a user
+    (getCurrentUser as jest.Mock).mockResolvedValue({ user: { id: 'user-123' }, error: null });
+    
+    // Mock Supabase client with poll creation fails
     const mockSupabase = {
-      auth: {
-        getSession: jest.fn().mockResolvedValue({
-          data: { session: { user: { id: 'user-123' } } },
-        }),
-      },
       from: jest.fn().mockReturnValue({
         insert: jest.fn().mockReturnValue({
           select: jest.fn().mockReturnValue({
@@ -70,13 +72,11 @@ describe('Create Poll Action', () => {
   });
 
   it('should return error if options creation fails', async () => {
-    // Mock Supabase client with session, poll creation succeeds but options fail
+    // Mock getCurrentUser with a user
+    (getCurrentUser as jest.Mock).mockResolvedValue({ user: { id: 'user-123' }, error: null });
+    
+    // Mock Supabase client with poll creation succeeds but options fail
     const mockSupabase = {
-      auth: {
-        getSession: jest.fn().mockResolvedValue({
-          data: { session: { user: { id: 'user-123' } } },
-        }),
-      },
       from: jest.fn().mockImplementation((table) => {
         if (table === 'polls') {
           return {
@@ -124,13 +124,11 @@ describe('Create Poll Action', () => {
       }
     } as any;
 
+    // Mock getCurrentUser with a user
+    (getCurrentUser as jest.Mock).mockResolvedValue({ user: { id: 'user-123' }, error: null });
+    
     // Mock Supabase client with successful poll and options creation
     const mockSupabase = {
-      auth: {
-        getSession: jest.fn().mockResolvedValue({
-          data: { session: { user: { id: 'user-123' } } },
-        }),
-      },
       from: jest.fn().mockImplementation((table) => {
         if (table === 'polls') {
           return {

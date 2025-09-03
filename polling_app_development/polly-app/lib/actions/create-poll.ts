@@ -1,32 +1,63 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '../supabase-server';
+import { CreatePollData } from '../types';
+import { getCurrentUser } from './auth';
 
-type PollOption = {
-  text: string;
+// Types for standardized responses
+type CreatePollResponse = {
+  success: boolean;
+  pollId?: string;
+  error?: string;
 };
 
-type CreatePollData = {
-  title: string;
-  description?: string;
-  options: PollOption[];
+// Centralized error handling
+const handleError = (error: unknown, context: string): { success: boolean; error: string } => {
+  console.error(`Error in ${context}:`, error);
+  return { 
+    success: false, 
+    error: error instanceof Error ? error.message : 'An unexpected error occurred' 
+  };
 };
 
-export async function createPoll(data: CreatePollData) {
-  const supabase = createServerSupabaseClient();
-  
-  // Get the current user
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session) {
-    throw new Error('You must be logged in to create a poll');
+// Input validation for poll data
+function validatePollData(data: CreatePollData): { valid: boolean; error?: string } {
+  if (!data.title || data.title.trim().length === 0) {
+    return { valid: false, error: 'Poll title is required' };
   }
   
-  const userId = session.user.id;
+  if (!data.options || data.options.length < 2) {
+    return { valid: false, error: 'At least two options are required' };
+  }
   
+  for (const option of data.options) {
+    if (!option.text || option.text.trim().length === 0) {
+      return { valid: false, error: 'Option text cannot be empty' };
+    }
+  }
+  
+  return { valid: true };
+}
+
+export async function createPoll(data: CreatePollData): Promise<CreatePollResponse> {
   try {
+    // Validate input data
+    const validation = validatePollData(data);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+    
+    // Get the current user
+    const { user, error: authError } = await getCurrentUser();
+    
+    if (authError || !user) {
+      return { success: false, error: 'You must be logged in to create a poll' };
+    }
+    
+    const userId = user.id;
+    const supabase = createServerSupabaseClient();
+    
     // Start a transaction by using the same timestamp for all operations
     const timestamp = new Date().toISOString();
     
@@ -43,7 +74,7 @@ export async function createPoll(data: CreatePollData) {
       .single();
     
     if (pollError) {
-      throw new Error(`Failed to create poll: ${pollError.message}`);
+      return { success: false, error: `Failed to create poll: ${pollError.message}` };
     }
     
     // 2. Create the poll options
@@ -57,7 +88,7 @@ export async function createPoll(data: CreatePollData) {
       .insert(pollOptions);
     
     if (optionsError) {
-      throw new Error(`Failed to create poll options: ${optionsError.message}`);
+      return { success: false, error: `Failed to create poll options: ${optionsError.message}` };
     }
     
     // Revalidate the polls page to show the new poll
@@ -65,7 +96,6 @@ export async function createPoll(data: CreatePollData) {
     
     return { success: true, pollId: poll.id };
   } catch (error) {
-    console.error('Error creating poll:', error);
-    return { success: false, error: (error as Error).message };
+    return handleError(error, 'createPoll');
   }
 }

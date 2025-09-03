@@ -1,7 +1,9 @@
 'use server';
 
 import { createServerSupabaseClient } from '../supabase-server';
+import { getCurrentUser } from './auth';
 
+// Types for standardized responses
 export type Poll = {
   id: string;
   title: string;
@@ -13,88 +15,83 @@ export type Poll = {
   votes_count: number;
 };
 
-export async function getPolls() {
+type PollResponse = {
+  polls: Poll[];
+  error: string | null;
+};
+
+type PollDetailResponse = {
+  poll: {
+    id: string;
+    title: string;
+    description: string | null;
+    created_at: string;
+    created_by: string;
+    user_email?: string | null;
+    options: {
+      id: string;
+      text: string;
+      poll_id: string;
+      votes: number;
+    }[];
+    total_votes: number;
+  } | null;
+  options: { id: string; text: string; poll_id: string; votes: number; }[];
+  error: string | null;
+};
+
+// Centralized error handling
+const handleError = (error: unknown, context: string) => {
+  console.error(`Error in ${context}:`, error);
+  return error instanceof Error ? error.message : 'An unexpected error occurred';
+};
+
+export async function getPolls(): Promise<PollResponse> {
   try {
     const supabase = createServerSupabaseClient();
     
-    // Get the current user session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    // Fetch polls
-    const { data: polls, error } = await supabase
+    // Use SQL count and joins to get polls with pre-counted options and votes
+    const { data: pollsWithCounts, error } = await supabase
       .from('polls')
       .select(`
         id,
         title,
         description,
         created_at,
-        created_by
+        created_by,
+        options_count:poll_options(count),
+        votes_count:votes(count)
       `)
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('Error fetching polls:', error);
       return { polls: [], error: 'Failed to fetch polls' };
     }
 
-    if (!polls || polls.length === 0) {
+    if (!pollsWithCounts || pollsWithCounts.length === 0) {
       return { polls: [], error: null };
     }
-
-    // Get option counts for each poll
-    const pollIds = polls.map(poll => poll.id);
     
-    // Get option counts
-    const { data: optionCounts, error: optionsError } = await supabase
-      .from('poll_options')
-      .select('poll_id')
-      .in('poll_id', pollIds);
-      
-    if (optionsError) {
-      console.error('Error fetching option counts:', optionsError);
-    }
-    
-    // Get vote counts
-    const { data: voteCounts, error: votesError } = await supabase
-      .from('votes')
-      .select('poll_id')
-      .in('poll_id', pollIds);
-      
-    if (votesError) {
-      console.error('Error fetching vote counts:', votesError);
-    }
-    
-    // Count options and votes per poll
-    const optionCountMap = new Map();
-    optionCounts?.forEach(item => {
-      optionCountMap.set(item.poll_id, (optionCountMap.get(item.poll_id) || 0) + 1);
-    });
-    
-    const voteCountMap = new Map();
-    voteCounts?.forEach(item => {
-      voteCountMap.set(item.poll_id, (voteCountMap.get(item.poll_id) || 0) + 1);
-    });
-    
-    // Format the polls with counts
-    const formattedPolls = polls.map(poll => ({
+    // Format the polls with counts already provided by SQL
+    const formattedPolls = pollsWithCounts.map(poll => ({
       id: poll.id,
       title: poll.title,
       description: poll.description,
       created_at: poll.created_at,
       created_by: poll.created_by,
-      user_email: null, // We'll handle user email separately if needed
-      options_count: optionCountMap.get(poll.id) || 0,
-      votes_count: voteCountMap.get(poll.id) || 0
+      user_email: null,
+      options_count: poll.options_count[0]?.count || 0,
+      votes_count: poll.votes_count[0]?.count || 0
     }));
     
     return { polls: formattedPolls, error: null };
   } catch (error) {
-    console.error('Error in getPolls:', error);
-    return { polls: [], error: 'An unexpected error occurred' };
+    const errorMessage = handleError(error, 'getPolls');
+    return { polls: [], error: errorMessage };
   }
 }
 
-export async function getPollById(id: string) {
+export async function getPollById(id: string): Promise<PollDetailResponse> {
   try {
     const supabase = createServerSupabaseClient();
     
@@ -112,43 +109,23 @@ export async function getPollById(id: string) {
       .single();
     
     if (error) {
-      console.error('Error fetching poll:', error);
-      return { poll: null, error: 'Failed to fetch poll' };
+      return { poll: null, options: [], error: 'Failed to fetch poll' };
     }
     
-    // Fetch poll options
-    const { data: options, error: optionsError } = await supabase
-      .from('poll_options')
-      .select('id, option_text, poll_id')
-      .eq('poll_id', id);
+    // Fetch poll options with vote counts in a single query
+    const { data: optionsWithVotes, error: optionsError } = await supabase
+      .rpc('get_options_with_vote_counts', { poll_id_param: id });
       
     if (optionsError) {
-      console.error('Error fetching poll options:', optionsError);
       return { poll: null, options: [], error: 'Failed to fetch poll options' };
     }
     
-    // Fetch vote counts for each option
-    const { data: voteCounts, error: votesError } = await supabase
-      .from('votes')
-      .select('poll_option_id')
-      .in('poll_option_id', options.map(opt => opt.id));
-      
-    if (votesError) {
-      console.error('Error fetching vote counts:', votesError);
-    }
-    
-    // Count votes per option
-    const voteCountMap = new Map();
-    voteCounts?.forEach(item => {
-      voteCountMap.set(item.poll_option_id, (voteCountMap.get(item.poll_option_id) || 0) + 1);
-    });
-    
     // Format the options with vote counts
-    const formattedOptions = options.map(option => ({
+    const formattedOptions = optionsWithVotes.map(option => ({
       id: option.id,
       text: option.option_text,
       poll_id: option.poll_id,
-      votes: voteCountMap.get(option.id) || 0
+      votes: option.vote_count
     }));
     
     // Format the poll
@@ -158,14 +135,14 @@ export async function getPollById(id: string) {
       description: poll.description,
       created_at: poll.created_at,
       created_by: poll.created_by,
-      user_email: null, // We'll handle user email separately if needed
+      user_email: null,
       options: formattedOptions,
       total_votes: formattedOptions.reduce((sum, opt) => sum + opt.votes, 0)
     };
     
-    return { poll: formattedPoll, error: null };
+    return { poll: formattedPoll, options: formattedOptions, error: null };
   } catch (error) {
-    console.error('Error in getPollById:', error);
-    return { poll: null, error: 'An unexpected error occurred' };
+    const errorMessage = handleError(error, 'getPollById');
+    return { poll: null, options: [], error: errorMessage };
   }
 }

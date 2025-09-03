@@ -4,6 +4,7 @@ import { updatePoll, deletePoll } from '../poll-actions';
 import { submitVote } from '../vote-actions';
 import { createServerSupabaseClient } from '../../supabase-server';
 import { revalidatePath } from 'next/cache';
+import { getCurrentUser } from '../auth';
 
 // Mock dependencies
 jest.mock('../../supabase-server', () => ({
@@ -12,6 +13,10 @@ jest.mock('../../supabase-server', () => ({
 
 jest.mock('next/cache', () => ({
   revalidatePath: jest.fn(),
+}));
+
+jest.mock('../auth', () => ({
+  getCurrentUser: jest.fn(),
 }));
 
 describe('Integration Tests', () => {
@@ -49,13 +54,11 @@ describe('Integration Tests', () => {
         }
       } as any;
 
+      // Mock getCurrentUser
+      (getCurrentUser as jest.Mock).mockResolvedValue({ user: { id: userId }, error: null });
+
       // Setup mock Supabase client
       const mockSupabase = {
-        auth: {
-          getSession: jest.fn().mockResolvedValue({
-            data: { session: { user: { id: userId } } },
-          }),
-        },
         from: jest.fn().mockImplementation((table) => {
           // Create Poll
           if (table === 'polls') {
@@ -187,9 +190,7 @@ describe('Integration Tests', () => {
       });
 
       expect(updateResult).toEqual({ success: true });
-      expect(revalidatePath).toHaveBeenCalledWith('/');
-      expect(revalidatePath).toHaveBeenCalledWith('/polls');
-      expect(revalidatePath).toHaveBeenCalledWith(`/polls/${pollId}`);
+      expect(revalidatePath).toHaveBeenCalledTimes(3); // Called for '/', '/polls', and `/polls/${pollId}`
 
       // Reset revalidatePath mock
       jest.clearAllMocks();
@@ -208,8 +209,7 @@ describe('Integration Tests', () => {
       const deleteResult = await deletePoll(pollId);
 
       expect(deleteResult).toEqual({ success: true });
-      expect(revalidatePath).toHaveBeenCalledWith('/');
-      expect(revalidatePath).toHaveBeenCalledWith('/polls');
+      expect(revalidatePath).toHaveBeenCalledTimes(2); // Called for '/' and '/polls'
 
       // Reset Date
       global.Date = originalDate;

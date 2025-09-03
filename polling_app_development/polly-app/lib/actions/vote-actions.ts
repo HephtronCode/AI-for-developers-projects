@@ -2,19 +2,34 @@
 
 import { revalidatePath } from 'next/cache';
 import { createServerSupabaseClient } from '../supabase-server';
+import { getCurrentUser } from './auth';
 
-export async function submitVote(pollId: string, optionId: string) {
+// Types for standardized responses
+type VoteResponse = {
+  success: boolean;
+  error?: string;
+};
+
+// Centralized error handling
+const handleError = (error: unknown, context: string): VoteResponse => {
+  console.error(`Error in ${context}:`, error);
+  return { 
+    success: false, 
+    error: error instanceof Error ? error.message : 'An unexpected error occurred' 
+  };
+};
+
+export async function submitVote(pollId: string, optionId: string): Promise<VoteResponse> {
   try {
-    const supabase = createServerSupabaseClient();
-    
     // Get the current user
-    const { data: { session } } = await supabase.auth.getSession();
+    const { user, error: authError } = await getCurrentUser();
     
-    if (!session) {
+    if (authError || !user) {
       return { success: false, error: 'You must be logged in to vote' };
     }
     
-    const userId = session.user.id;
+    const userId = user.id;
+    const supabase = createServerSupabaseClient();
     
     // Check if user has already voted on this poll
     const { data: existingVote, error: checkError } = await supabase
@@ -25,7 +40,6 @@ export async function submitVote(pollId: string, optionId: string) {
       .maybeSingle();
     
     if (checkError) {
-      console.error('Error checking existing vote:', checkError);
       return { success: false, error: 'Failed to check voting status' };
     }
     
@@ -43,7 +57,6 @@ export async function submitVote(pollId: string, optionId: string) {
       });
     
     if (voteError) {
-      console.error('Error submitting vote:', voteError);
       return { success: false, error: 'Failed to submit vote' };
     }
     
@@ -53,7 +66,6 @@ export async function submitVote(pollId: string, optionId: string) {
     
     return { success: true };
   } catch (error) {
-    console.error('Error in submitVote:', error);
-    return { success: false, error: (error as Error).message };
+    return handleError(error, 'submitVote');
   }
 }
