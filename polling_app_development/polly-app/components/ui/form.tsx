@@ -8,10 +8,10 @@ const FormItem = React.forwardRef<
   <div 
     ref={ref} 
     className={cn(
-      "space-y-1.5 mb-4 relative", 
-      "transition-all duration-200 ease-in-out",
+      "space-y-1.5 mb-6 relative group", 
+      "transition-all duration-300 ease-in-out",
       error && "animate-shake",
-      focused && "ring-1 ring-primary/20 rounded-md p-2 -mx-2 bg-primary/5",
+      focused && "ring-1 ring-primary/30 rounded-md p-3 -mx-2 bg-accent/10 shadow-sm",
       className
     )} 
     {...props} 
@@ -42,9 +42,9 @@ const FormLabel = React.forwardRef<
     ref={ref}
     className={cn(
       "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-      "transition-colors duration-200 mb-1.5 inline-block",
-      "after:content-[''] after:block after:w-0 after:h-0.5 after:bg-primary after:transition-all after:duration-300",
-      "group-focus-within:after:w-full group-focus-within:text-primary",
+      "transition-colors duration-300 mb-2 inline-block",
+      "after:content-[''] after:block after:w-0 after:h-0.5 after:bg-gradient-to-r after:from-primary/80 after:to-purple-500/80 after:transition-all after:duration-300",
+      "group-focus-within:after:w-full group-focus-within:text-primary group-focus-within:glow-text",
       "flex items-center gap-1",
       className
     )}
@@ -63,9 +63,8 @@ const FormControl = React.forwardRef<
   <div 
     ref={ref} 
     className={cn(
-      "mt-1.5 relative transition-all duration-200",
-      "focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-1",
-      "hover:border-primary/50",
+      "mt-1.5 relative transition-all duration-300",
+      "focus-within:shadow-md focus-within:shadow-primary/10",
       className
     )} 
     {...props} 
@@ -80,9 +79,10 @@ const FormDescription = React.forwardRef<
   <p
     ref={ref}
     className={cn(
-      "text-sm text-muted-foreground mt-1.5",
+      "text-sm text-muted-foreground mt-2",
       "animate-in fade-in slide-in-from-bottom-1 duration-300",
       "flex items-center gap-1.5",
+      "opacity-70 group-hover:opacity-100 transition-opacity duration-300",
       className
     )}
     {...props}
@@ -95,7 +95,7 @@ const FormDescription = React.forwardRef<
           xmlns="http://www.w3.org/2000/svg" 
           viewBox="0 0 20 20" 
           fill="currentColor" 
-          className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground/70"
+          className="w-3.5 h-3.5 flex-shrink-0 text-primary/70"
         >
           <path 
             fillRule="evenodd" 

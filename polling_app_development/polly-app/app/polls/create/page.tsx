@@ -142,9 +142,9 @@ export default function CreatePollPage() {
         <Button variant="outline">← Back to Polls</Button>
       </Link>
       
-      <Card className="mt-4">
+      <Card className="mt-4 glass-card overflow-hidden">
         <CardHeader>
-          <CardTitle>Create New Poll</CardTitle>
+          <CardTitle className="gradient-text">Create New Poll</CardTitle>
           <CardDescription>
             Fill in the details below to create a new poll
           </CardDescription>
@@ -152,7 +152,7 @@ export default function CreatePollPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
             <FormItem>
-              <FormLabel htmlFor="title">Poll Title</FormLabel>
+              <FormLabel htmlFor="title" required>Poll Title</FormLabel>
               <FormControl>
                 <Input
                   id="title"
@@ -160,8 +160,10 @@ export default function CreatePollPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
+                  className="focus-within:glow"
                 />
               </FormControl>
+              <FormDescription>A clear, concise question for your audience</FormDescription>
             </FormItem>
             
             <FormItem>
@@ -173,56 +175,76 @@ export default function CreatePollPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
+                  className="focus-within:glow"
                 />
               </FormControl>
+              <FormDescription>Additional details to help voters understand your poll</FormDescription>
             </FormItem>
             
             <div className="space-y-4">
-              <FormLabel>Poll Options</FormLabel>
-              {options.map((option, index) => (
-                <div key={option.id} className="flex items-center gap-2">
-                  <Input
-                    placeholder={`Option ${index + 1}`}
-                    value={option.text}
-                    onChange={(e) => handleOptionChange(option.id, e.target.value)}
-                    required
-                  />
-                  {options.length > 2 && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => handleRemoveOption(option.id)}
-                    >
-                      ×
-                    </Button>
-                  )}
-                </div>
-              ))}
+              <FormLabel required>Poll Options</FormLabel>
+              <FormDescription>Add at least two options for people to vote on</FormDescription>
+              
+              <div className="space-y-3">
+                {options.map((option, index) => (
+                  <div key={option.id} className="flex items-center gap-2 group/option">
+                    <div className="relative flex-1">
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-primary/70 opacity-70">{index + 1}.</div>
+                      <Input
+                        placeholder={`Option ${index + 1}`}
+                        value={option.text}
+                        onChange={(e) => handleOptionChange(option.id, e.target.value)}
+                        required
+                        className="pl-8 focus-within:glow group-hover/option:border-primary/30 transition-all duration-300"
+                      />
+                    </div>
+                    {options.length > 2 && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => handleRemoveOption(option.id)}
+                        className="opacity-70 hover:opacity-100 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all duration-300"
+                      >
+                        ×
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
               
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={handleAddOption}
-                className="w-full mt-2"
+                className="w-full mt-4 border-dashed border-glass-border hover:border-primary/50 hover:bg-accent/20 transition-all duration-300"
               >
-                + Add Option
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Option
               </Button>
             </div>
           </CardContent>
           <CardFooter>
             <Button 
               type="submit" 
-              className="w-full"
+              variant="gradient"
+              className="w-full py-6 text-base font-medium"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                   Creating Poll...
                 </>
               ) : (
-                'Create Poll'
+                <>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Create Poll
+                </>
               )}
             </Button>
           </CardFooter>

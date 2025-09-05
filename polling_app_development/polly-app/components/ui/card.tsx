@@ -1,15 +1,37 @@
 import * as React from "react";
 
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}
-    {...props}
-  />
-));
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  animation?: "none" | "fade-in" | "scale-in" | "slide-in-right" | "slide-in-left";
+  hoverEffect?: "none" | "scale" | "glow" | "border-glow";
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, animation = "none", hoverEffect = "none", ...props }, ref) => (
+    <div
+      ref={ref}
+      className={`rounded-lg border border-glass-border bg-card/80 backdrop-blur-sm text-card-foreground shadow-md transition-all duration-300 ${
+        animation === "none"
+          ? ""
+          : animation === "fade-in"
+          ? "animate-fade-in"
+          : animation === "scale-in"
+          ? "animate-scale-in"
+          : animation === "slide-in-right"
+          ? "animate-slide-in-right"
+          : "animate-slide-in-left"
+      } ${
+        hoverEffect === "none"
+          ? "hover:shadow-lg"
+          : hoverEffect === "scale"
+          ? "hover:shadow-lg hover:scale-[1.02]"
+          : hoverEffect === "glow"
+          ? "hover:shadow-lg hover:shadow-primary/20"
+          : "hover:shadow-lg hover:border-primary/30"
+      } ${className}`}
+      {...props}
+    />
+  )
+);
 Card.displayName = "Card";
 
 const CardHeader = React.forwardRef<

@@ -1,36 +1,192 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Polly - Interactive Polling Application
 
-## Getting Started
+Polly is a modern, interactive polling application that allows users to create, manage, and participate in polls. With a sleek, responsive UI and real-time results, Polly makes gathering opinions and insights from your audience simple and engaging.
 
-First, run the development server:
+![Polly App Banner](public/vercel.svg)
+
+## Project Overview
+
+Polly is built with a modern tech stack, focusing on performance, scalability, and developer experience:
+
+### Tech Stack
+
+- **Frontend**: Next.js 15 (App Router), React, TypeScript, Tailwind CSS
+- **Backend**: Server Actions, Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Styling**: Tailwind CSS with custom UI components
+- **Testing**: Jest, React Testing Library
+
+### Key Features
+
+- **User Authentication**: Secure sign-up, sign-in, and session management
+- **Poll Creation**: Create custom polls with multiple options
+- **Poll Management**: Edit and delete your polls
+- **Voting System**: One vote per user with real-time result updates
+- **Dashboard**: View all polls and manage your created polls
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+
+## Setup Instructions
+
+### Prerequisites
+
+- Node.js 18.x or higher
+- npm or yarn
+- Supabase account
+
+### Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/yourusername/polly-app.git
+   cd polly-app
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Set up environment variables:
+   Create a `.env.local` file in the root directory with the following variables:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+### Supabase Configuration
+
+1. Create a new Supabase project
+2. Run the database schema setup:
+
+   - Import the schema from `schema.sql` in the Supabase SQL Editor
+   - This will create the necessary tables for polls, options, and votes
+
+3. Set up authentication:
+   - Enable Email/Password authentication in the Supabase dashboard
+   - Configure email templates if desired
+
+## Running the Application
+
+Start the development server:
 
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Usage Examples
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Creating a Poll
 
-## Learn More
+1. Sign in to your account
+2. Navigate to "Create Poll" from the dashboard
+3. Fill in the poll title and description
+4. Add at least two options
+5. Click "Create Poll"
 
-To learn more about Next.js, take a look at the following resources:
+### Voting on a Poll
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Browse to the polls page
+2. Select a poll to view
+3. Choose an option
+4. Click "Submit Vote"
+5. View the results displayed in real-time
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Managing Polls
 
-## Deploy on Vercel
+1. Go to your dashboard
+2. Find the poll you want to manage
+3. Use the edit button to modify the poll
+4. Use the delete button to remove the poll
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Testing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Run the test suite:
+
+```bash
+npm test
+# or
+yarn test
+```
+
+The project includes:
+
+- Unit tests for utility functions
+- Integration tests for server actions
+- Component tests for UI elements
+
+## Project Structure
+
+```
+polly-app/
+├── app/               # Next.js App Router pages
+├── components/        # Reusable UI components
+├── contexts/          # React contexts (auth, etc.)
+├── lib/               # Utility functions and server actions
+│   ├── actions/       # Server actions (auth, polls, votes)
+│   ├── sql/           # SQL queries
+│   └── types.ts       # TypeScript type definitions
+├── public/            # Static assets
+└── ...                # Configuration files
+```
+
+## Troubleshooting
+
+### Common Build Errors
+
+#### Syntax Errors in Server Actions
+
+If you encounter errors like "Return statement is not allowed here" in server action files, check for:
+
+1. Misplaced function definitions or incomplete function blocks
+2. Duplicated code blocks that may have been accidentally copied
+3. Missing or extra brackets that break the function structure
+
+Example fix for a common error in `poll-actions.ts`:
+
+```typescript
+// Incorrect:
+/**
+ * Function documentation
+ */
+    // Code that belongs to another function
+    return { success: true };
+  } catch (error) {
+    // Error handling
+  }
+}
+
+// Correct:
+/**
+ * Function documentation
+ */
+export async function updatePoll(...) {
+  try {
+    // Function implementation
+  } catch (error) {
+    // Error handling
+  }
+}
+```
+
+#### Environment Variables
+
+If the application fails to connect to Supabase, verify:
+
+1. Your `.env.local` file contains the correct Supabase URL and anonymous key
+2. The environment variables are being properly loaded (check with `console.log(process.env.NEXT_PUBLIC_SUPABASE_URL)`)
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
