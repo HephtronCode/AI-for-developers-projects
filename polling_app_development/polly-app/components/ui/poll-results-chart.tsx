@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import {
 	PieChart,
@@ -11,7 +13,6 @@ import {
 	YAxis,
 	Legend,
 } from "recharts";
-
 export type PollResult = {
 	option: string;
 	votes: number;
@@ -37,7 +38,8 @@ export function PollResultsChart({
 	data,
 	type = "pie",
 }: PollResultsChartProps) {
-	if (!data || data.length === 0) {
+	const totalVotes = data?.reduce((sum, d) => sum + d.votes, 0) ?? 0;
+	if (!data || data.length === 0 || totalVotes === 0) {
 		return (
 			<div className="text-center text-gray-500">No results to display.</div>
 		);

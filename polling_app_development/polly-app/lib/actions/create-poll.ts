@@ -133,7 +133,13 @@ export async function createPoll(data: CreatePollData): Promise<CreatePollRespon
       .insert(pollOptions);
 
     if (optionsError) {
-      return { success: false, error: `Failed to create poll options: ${optionsError.message}` };
+      // Best-effort rollback of the created poll to avoid orphans
+      await supabase
+        .from('polls')
+        .delete()
+        .eq('id', poll.id);
+
+      return { success: false, error: 'Failed to create poll options' };
     }
 
     // Revalidate the polls page cache to show the new poll immediately

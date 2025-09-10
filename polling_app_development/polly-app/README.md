@@ -35,6 +35,24 @@ Poll results are now displayed as interactive bar and pie charts after voting, u
 - Both bar and pie chart visualizations are available.
 - Charts appear on the poll details page after a user votes.
 
+**Important: Recharts is browser-only and does not support server-side rendering (SSR).**
+
+To avoid SSR errors, you must ensure the chart is only rendered on the client:
+
+- **Option 1 (Recommended for use in server components):** Import the chart dynamically with SSR disabled:
+
+  ```tsx
+  import dynamic from "next/dynamic";
+  const PollResultsChart = dynamic(
+  	() => import("@/components/ui/poll-results-chart"),
+  	{ ssr: false }
+  );
+  ```
+
+- **Option 2:** Convert `PollResultsChart` into a Next.js client component by adding `"use client"` at the top of the file. This is already done in this project.
+
+If you use the chart inside a server component, always use the dynamic import approach (Option 1) to prevent hydration or SSR errors.
+
 ### Example Usage
 
 After voting on a poll, you will see:

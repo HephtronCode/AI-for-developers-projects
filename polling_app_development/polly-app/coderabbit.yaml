@@ -12,13 +12,64 @@ reviews:
     enabled: true
     drafts: false
 
-  # Security scanning configuration
-  security_scanning:
+  # Security and code scanning tools
+  tools:
+    semgrep:
+      enabled: true
+      sast: true  # Static Application Security Testing
+    gitleaks:
+      enabled: true
+    dependency_scanner:
+      enabled: true
+    vulnerability_alerts:
+      enabled: true
+
+  # AI-powered suggestions and code generation
+  finishing_touches:
     enabled: true
-    scan_dependencies: true
-    scan_secrets: true
-    vulnerability_alerts: true
-    sast_enabled: true  # Static Application Security Testing
+    features:
+      - code_optimization
+      - security_best_practices
+      - performance_improvements
+      - accessibility_enhancements
+      - test_coverage
+  code_generation:
+    enabled: true
+    features:
+      - code_optimization
+      - security_best_practices
+      - performance_improvements
+      - accessibility_enhancements
+      - test_coverage
+
+  # Pre-merge checks and severity levels
+  pre_merge_checks:
+    security_vulnerabilities:
+      mode: error
+    memory_leaks:
+      mode: error
+    authentication_bypass:
+      mode: error
+    data_exposure:
+      mode: error
+    performance_issues:
+      mode: warning
+    security_misconfiguration:
+      mode: warning
+    insecure_dependencies:
+      mode: warning
+    code_style_violations:
+      mode: warning
+    accessibility_issues:
+      mode: warning
+    type_safety_concerns:
+      mode: warning
+    documentation_missing:
+      mode: warning
+    code_duplication:
+      mode: warning
+    naming_conventions:
+      mode: warning
 
   # AI-powered suggestions
   ai_suggestions:
