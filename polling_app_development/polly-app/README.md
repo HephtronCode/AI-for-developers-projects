@@ -15,6 +15,7 @@ Polly is built with a modern tech stack, focusing on performance, scalability, a
 - **Authentication**: Supabase Auth
 - **Styling**: Tailwind CSS with custom UI components
 - **Testing**: Jest, React Testing Library
+- **Data Visualization**: [Recharts](https://recharts.org/) for poll results charts
 
 ### Key Features
 
@@ -22,8 +23,24 @@ Polly is built with a modern tech stack, focusing on performance, scalability, a
 - **Poll Creation**: Create custom polls with multiple options
 - **Poll Management**: Edit and delete your polls
 - **Voting System**: One vote per user with real-time result updates
+- **Poll Results Visualization**: View poll results as interactive bar and pie charts
 - **Dashboard**: View all polls and manage your created polls
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
+
+## New Feature: Poll Results Visualization
+
+Poll results are now displayed as interactive bar and pie charts after voting, using the [Recharts](https://recharts.org/) library. This provides a clear and engaging way to see poll outcomes at a glance.
+
+- Charts are rendered by the `PollResultsChart` component in `components/ui/poll-results-chart.tsx`.
+- Both bar and pie chart visualizations are available.
+- Charts appear on the poll details page after a user votes.
+
+### Example Usage
+
+After voting on a poll, you will see:
+
+- A bar chart showing the number of votes per option
+- A pie chart visualizing the distribution of votes
 
 ## Setup Instructions
 
@@ -128,6 +145,8 @@ The project includes:
 polly-app/
 ├── app/               # Next.js App Router pages
 ├── components/        # Reusable UI components
+│   └── ui/
+│       └── poll-results-chart.tsx   # Poll results chart component (Recharts)
 ├── contexts/          # React contexts (auth, etc.)
 ├── lib/               # Utility functions and server actions
 │   ├── actions/       # Server actions (auth, polls, votes)

@@ -91,21 +91,21 @@ export async function createPoll(data: CreatePollData): Promise<CreatePollRespon
     if (!validation.valid) {
       return { success: false, error: validation.error };
     }
-    
+
     // Get the current user to verify authentication and get user ID
     const { user, error: authError } = await getCurrentUser();
-    
+
     if (authError || !user) {
       return { success: false, error: 'You must be logged in to create a poll' };
     }
-    
+
     const userId = user.id;
     const supabase = createServerSupabaseClient();
-    
+
     // Start a transaction by using the same timestamp for all operations
     // This ensures data consistency across related tables
     const timestamp = new Date().toISOString();
-    
+
     // 1. Create the poll record in the polls table
     const { data: poll, error: pollError } = await supabase
       .from('polls')
@@ -117,31 +117,30 @@ export async function createPoll(data: CreatePollData): Promise<CreatePollRespon
       })
       .select()
       .single();
-    
+
     if (pollError) {
       return { success: false, error: `Failed to create poll: ${pollError.message}` };
     }
-    
+
     // 2. Create the poll options in the poll_options table
     const pollOptions = data.options.map(option => ({
       poll_id: poll.id,
       option_text: option.text
     }));
-    
+
     const { error: optionsError } = await supabase
       .from('poll_options')
       .insert(pollOptions);
-    
+
     if (optionsError) {
       return { success: false, error: `Failed to create poll options: ${optionsError.message}` };
     }
-    
+
     // Revalidate the polls page cache to show the new poll immediately
     revalidatePath('/polls');
-    
+
     return { success: true, pollId: poll.id };
   } catch (error) {
     return handleError(error, 'createPoll');
-  }
   }
 }
