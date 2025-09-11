@@ -1,229 +1,105 @@
-# Polly - Interactive Polling Application
+# Polly - A Secure & Modern Polling Application
 
-Polly is a modern, interactive polling application that allows users to create, manage, and participate in polls. With a sleek, responsive UI and real-time results, Polly makes gathering opinions and insights from your audience simple and engaging.
+Polly is a full-stack, interactive polling application that allows users to create, manage, and vote on polls. It is built with a focus on security, performance, and a modern developer experience.
 
 ![Polly App Banner](public/vercel.svg)
 
 ## Project Overview
 
-Polly is built with a modern tech stack, focusing on performance, scalability, and developer experience:
-
-### Tech Stack
-
-- **Frontend**: Next.js 15 (App Router), React, TypeScript, Tailwind CSS
-- **Backend**: Server Actions, Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
-- **Styling**: Tailwind CSS with custom UI components
-- **Testing**: Jest, React Testing Library
-- **Data Visualization**: [Recharts](https://recharts.org/) for poll results charts
+Polly is built with a modern tech stack, emphasizing robustness and security. It uses Next.js for a hybrid frontend and backend, with data managed by Supabase and user input secured at multiple layers.
 
 ### Key Features
 
-- **User Authentication**: Secure sign-up, sign-in, and session management
-- **Poll Creation**: Create custom polls with multiple options
-- **Poll Management**: Edit and delete your polls
-- **Voting System**: One vote per user with real-time result updates
-- **Poll Results Visualization**: View poll results as interactive bar and pie charts
-- **Dashboard**: View all polls and manage your created polls
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Secure User Authentication**: Sign-up, sign-in, and session management via Supabase Auth.
+- **Full Poll Lifecycle**: Users can create, view, edit, and delete their own polls.
+- **Robust Voting System**: Enforces one vote per user per poll, with real-time result updates.
+- **Data Visualization**: Poll results are displayed in interactive bar charts using Recharts.
+- **Responsive Design**: A clean and modern UI that works seamlessly on desktop and mobile.
 
-## New Feature: Poll Results Visualization
+### Tech Stack
 
-Poll results are now displayed as interactive bar and pie charts after voting, using the [Recharts](https://recharts.org/) library. This provides a clear and engaging way to see poll outcomes at a glance.
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Backend**: Next.js Server Actions
+- **Database & Auth**: Supabase (PostgreSQL)
+- **Styling**: Tailwind CSS
+- **UI Components**: Radix UI (via shadcn/ui)
+- **Validation**: Zod
+- **Data Visualization**: Recharts
+- **Testing**: Jest, React Testing Library
 
-- Charts are rendered by the `PollResultsChart` component in `components/ui/poll-results-chart.tsx`.
-- Both bar and pie chart visualizations are available.
-- Charts appear on the poll details page after a user votes.
+---
 
-**Important: Recharts is browser-only and does not support server-side rendering (SSR).**
+## Security Features
 
-To avoid SSR errors, you must ensure the chart is only rendered on the client:
+This application employs a **defense-in-depth** strategy to protect user data and ensure application integrity.
 
-- **Option 1 (Recommended for use in server components):** Import the chart dynamically with SSR disabled:
+### 1. Database-Level Security (RLS)
 
-  ```tsx
-  import dynamic from "next/dynamic";
-  const PollResultsChart = dynamic(
-  	() => import("@/components/ui/poll-results-chart"),
-  	{ ssr: false }
-  );
-  ```
+- **PostgreSQL Row-Level Security (RLS)** is enabled on all tables in Supabase.
+- **Policies**: Strict RLS policies are in place to ensure that users can only read, update, or delete data that they own (e.g., a user can only edit a poll they created). This is the foundational layer of security, enforced directly by the database.
 
-- **Option 2:** Convert `PollResultsChart` into a Next.js client component by adding `"use client"` at the top of the file. This is already done in this project.
+### 2. Application-Level Validation
 
-If you use the chart inside a server component, always use the dynamic import approach (Option 1) to prevent hydration or SSR errors.
+- **Schema Validation**: All server actions use **Zod** to enforce strict schema validation on all incoming data.
+- **Protection**: This prevents malformed or malicious data from being processed, protecting against common vulnerabilities and ensuring data integrity before it even reaches the database.
 
-### Example Usage
+---
 
-After voting on a poll, you will see:
-
-- A bar chart showing the number of votes per option
-- A pie chart visualizing the distribution of votes
-
-## Setup Instructions
+## Getting Started
 
 ### Prerequisites
 
 - Node.js 18.x or higher
 - npm or yarn
-- Supabase account
+- A Supabase account
 
-### Installation
+### Installation & Setup
 
-1. Clone the repository:
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/polly-app.git
+    cd polly-app
+    ```
 
-   ```bash
-   git clone https://github.com/yourusername/polly-app.git
-   cd polly-app
-   ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-2. Install dependencies:
+3.  **Set up Environment Variables:**
+    Create a `.env.local` file in the root of the project. This file is for local development and should not be committed to git. Add your Supabase project credentials:
+    ```
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    ```
 
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
+4.  **Set up the Database:**
+    - In your Supabase project dashboard, navigate to the **SQL Editor**.
+    - Open the `schema.sql` file from this repository.
+    - Copy its content and run it in the SQL Editor to create all necessary tables, policies, and functions.
 
-3. Set up environment variables:
-   Create a `.env.local` file in the root directory with the following variables:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+5.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
 
-### Supabase Configuration
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
-1. Create a new Supabase project
-2. Run the database schema setup:
+## Codebase Structure
 
-   - Import the schema from `schema.sql` in the Supabase SQL Editor
-   - This will create the necessary tables for polls, options, and votes
-
-3. Set up authentication:
-   - Enable Email/Password authentication in the Supabase dashboard
-   - Configure email templates if desired
-
-## Running the Application
-
-Start the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
-
-## Usage Examples
-
-### Creating a Poll
-
-1. Sign in to your account
-2. Navigate to "Create Poll" from the dashboard
-3. Fill in the poll title and description
-4. Add at least two options
-5. Click "Create Poll"
-
-### Voting on a Poll
-
-1. Browse to the polls page
-2. Select a poll to view
-3. Choose an option
-4. Click "Submit Vote"
-5. View the results displayed in real-time
-
-### Managing Polls
-
-1. Go to your dashboard
-2. Find the poll you want to manage
-3. Use the edit button to modify the poll
-4. Use the delete button to remove the poll
-
-## Testing
-
-Run the test suite:
-
-```bash
-npm test
-# or
-yarn test
-```
-
-The project includes:
-
-- Unit tests for utility functions
-- Integration tests for server actions
-- Component tests for UI elements
-
-## Project Structure
+The codebase is organized to be modular and maintainable.
 
 ```
 polly-app/
-├── app/               # Next.js App Router pages
-├── components/        # Reusable UI components
-│   └── ui/
-│       └── poll-results-chart.tsx   # Poll results chart component (Recharts)
-├── contexts/          # React contexts (auth, etc.)
-├── lib/               # Utility functions and server actions
-│   ├── actions/       # Server actions (auth, polls, votes)
-│   ├── sql/           # SQL queries
-│   └── types.ts       # TypeScript type definitions
-├── public/            # Static assets
-└── ...                # Configuration files
+├── app/               # Next.js App Router pages & layouts
+├── components/        # Reusable React components
+├── lib/               # Core application logic
+│   ├── actions/       # Server Actions (business logic for mutations)
+│   ├── sql/           # Reusable SQL scripts
+│   └── supabase-*.ts  # Supabase client configurations
+├── schema.sql         # The complete database schema for Supabase
+└── ...                # Other configuration files
 ```
 
-## Troubleshooting
-
-### Common Build Errors
-
-#### Syntax Errors in Server Actions
-
-If you encounter errors like "Return statement is not allowed here" in server action files, check for:
-
-1. Misplaced function definitions or incomplete function blocks
-2. Duplicated code blocks that may have been accidentally copied
-3. Missing or extra brackets that break the function structure
-
-Example fix for a common error in `poll-actions.ts`:
-
-```typescript
-// Incorrect:
-/**
- * Function documentation
- */
-    // Code that belongs to another function
-    return { success: true };
-  } catch (error) {
-    // Error handling
-  }
-}
-
-// Correct:
-/**
- * Function documentation
- */
-export async function updatePoll(...) {
-  try {
-    // Function implementation
-  } catch (error) {
-    // Error handling
-  }
-}
-```
-
-#### Environment Variables
-
-If the application fails to connect to Supabase, verify:
-
-1. Your `.env.local` file contains the correct Supabase URL and anonymous key
-2. The environment variables are being properly loaded (check with `console.log(process.env.NEXT_PUBLIC_SUPABASE_URL)`)
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+All server actions in `lib/actions/` are documented to explain their purpose, parameters, and security considerations.

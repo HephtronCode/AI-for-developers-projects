@@ -1,17 +1,25 @@
+-- Ensure required extensions are available
+CREATE EXTENSION IF NOT EXISTS pgcrypto; -- for gen_random_uuid
+
 -- Create polls table to store poll questions and metadata
 CREATE TABLE polls (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    title TEXT NOT NULL CHECK (char_length(title) > 0),
+    title TEXT NOT NULL CHECK (char_length(trim(title)) > 0),
     description TEXT,
     created_by uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 -- Create poll_options table to store individual options for each poll
 CREATE TABLE poll_options (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     poll_id uuid REFERENCES polls(id) ON DELETE CASCADE NOT NULL,
-    option_text TEXT NOT NULL CHECK (char_length(option_text) > 0)
+    option_text TEXT NOT NULL CHECK (char_length(trim(option_text)) > 0),
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    -- Prevent duplicate options per poll (case/space-insensitive)
+    CONSTRAINT unique_option_per_poll UNIQUE (poll_id, (lower(trim(option_text))))
 );
 
 -- Create votes table to record user votes on poll options
@@ -24,6 +32,30 @@ CREATE TABLE votes (
     -- A user can only vote once per poll
     CONSTRAINT unique_vote_per_poll UNIQUE (poll_id, user_id)
 );
+
+-- Useful indexes to optimize common queries
+CREATE INDEX IF NOT EXISTS idx_polls_created_by ON polls (created_by);
+CREATE INDEX IF NOT EXISTS idx_polls_created_at ON polls (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_poll_options_poll_id ON poll_options (poll_id);
+CREATE INDEX IF NOT EXISTS idx_votes_poll_id ON votes (poll_id);
+CREATE INDEX IF NOT EXISTS idx_votes_poll_option_id ON votes (poll_option_id);
+
+-- Updated-at trigger function and triggers
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_polls_updated_at
+BEFORE UPDATE ON polls
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_poll_options_updated_at
+BEFORE UPDATE ON poll_options
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Enable Row Level Security (RLS) for all tables
 ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
@@ -91,3 +123,21 @@ GRANT EXECUTE ON FUNCTION get_options_with_vote_counts(UUID) TO authenticated, a
 
 -- Comment explaining the function
 COMMENT ON FUNCTION get_options_with_vote_counts(UUID) IS 'Gets all options for a poll with their vote counts in a single efficient query';
+
+-- Helpful comments for schema introspection
+COMMENT ON TABLE polls IS 'Poll questions and metadata.';
+COMMENT ON COLUMN polls.title IS 'The poll question/title.';
+COMMENT ON COLUMN polls.created_by IS 'User ID (auth.users.id) of the poll creator.';
+COMMENT ON COLUMN polls.created_at IS 'Creation timestamp (UTC).';
+COMMENT ON COLUMN polls.updated_at IS 'Last update timestamp (UTC).';
+
+COMMENT ON TABLE poll_options IS 'Answer options for a given poll.';
+COMMENT ON COLUMN poll_options.option_text IS 'Display text for the option (unique per poll, case/space-insensitive).';
+COMMENT ON COLUMN poll_options.created_at IS 'Creation timestamp (UTC).';
+COMMENT ON COLUMN poll_options.updated_at IS 'Last update timestamp (UTC).';
+
+COMMENT ON TABLE votes IS 'User votes for poll options.';
+COMMENT ON COLUMN votes.poll_id IS 'The poll being voted on.';
+COMMENT ON COLUMN votes.poll_option_id IS 'The selected option for the poll.';
+COMMENT ON COLUMN votes.user_id IS 'User who cast the vote.';
+COMMENT ON COLUMN votes.created_at IS 'When the vote was cast (UTC).';

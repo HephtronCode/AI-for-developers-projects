@@ -1,33 +1,33 @@
 'use server';
 
 /**
- * Voting System Module
- * 
- * This module provides server actions for handling user votes on polls.
- * It ensures that users can only vote once per poll and handles the
- * persistence of vote data.
+ * @file Server action for handling user votes.
+ * @module lib/actions/vote-actions
+ * @description Provides a function for casting a vote, including validation and authorization.
  */
 
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 import { createServerSupabaseClient } from '../supabase-server';
 import { getCurrentUser } from './auth';
 
+// Validation schema for a vote submission, ensuring both IDs are valid UUIDs.
+const voteSchema = z.object({
+  pollId: z.string().uuid({ message: 'Invalid Poll ID' }),
+  optionId: z.string().uuid({ message: 'Invalid Option ID' }),
+});
+
 /**
- * Standard response type for voting operations
+ * Standardized response structure for the submitVote action.
  */
 type VoteResponse = {
-  success: boolean;  // Whether the operation was successful
-  error?: string;    // Error message (if unsuccessful)
+  success: boolean;  // Indicates if the operation was successful.
+  error?: string;    // A general error message on failure.
+  errorDetails?: z.ZodIssue[]; // Detailed validation errors from Zod.
 };
 
 /**
- * Centralized error handler for voting actions
- * 
- * Provides consistent error handling and logging across the module.
- * 
- * @param {unknown} error - The error that occurred
- * @param {string} context - Description of where the error occurred
- * @returns {VoteResponse} Standardized error response
+ * Centralized error handler for voting actions.
  */
 const handleError = (error: unknown, context: string): VoteResponse => {
   console.error(`Error in ${context}:`, error);
@@ -38,66 +38,55 @@ const handleError = (error: unknown, context: string): VoteResponse => {
 };
 
 /**
- * Records a user's vote for a specific poll option
- * 
- * This function:
- * 1. Verifies the user is authenticated
- * 2. Checks if the user has already voted on this poll
- * 3. Records the vote in the database
- * 4. Revalidates relevant paths to update the UI
+ * Records a user's vote for a specific poll option.
  *
- * The one-vote-per-user policy is enforced to maintain poll integrity.
+ * This action validates the input, ensures the user is authenticated, and inserts
+ * the vote. A unique constraint in the database (`unique_vote_per_poll`) prevents
+ * a user from voting more than once on the same poll.
  *
- * @param {string} pollId - ID of the poll being voted on
- * @param {string} optionId - ID of the selected poll option
- * @returns {Promise<VoteResponse>} Result of the voting operation
+ * @param {string} pollId - The ID of the poll being voted on.
+ * @param {string} optionId - The ID of the selected poll option.
+ * @returns {Promise<VoteResponse>} The result of the voting operation.
  */
-
 export async function submitVote(pollId: string, optionId: string): Promise<VoteResponse> {
   try {
-    // Get the current user to verify authentication
+    // 1. Validate the poll and option IDs.
+    const validationResult = voteSchema.safeParse({ pollId, optionId });
+    if (!validationResult.success) {
+      return {
+        success: false,
+        error: 'Invalid vote data provided.',
+        errorDetails: validationResult.error.issues,
+      };
+    }
+
+    // 2. Ensure a user is authenticated before allowing a vote.
     const { user, error: authError } = await getCurrentUser();
-    
     if (authError || !user) {
       return { success: false, error: 'You must be logged in to vote' };
     }
     
-    const userId = user.id;
     const supabase = createServerSupabaseClient();
     
-    // Check if user has already voted on this poll
-    // This prevents users from voting multiple times on the same poll
-    const { data: existingVote, error: checkError } = await supabase
-      .from('votes')
-      .select('id')
-      .eq('poll_id', pollId)
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (checkError) {
-      return { success: false, error: 'Failed to check voting status' };
-    }
-    
-    if (existingVote) {
-      return { success: false, error: 'You have already voted on this poll' };
-    }
-    
-    // Create the vote record in the database
-    // This links the user, poll, and selected option
+    // 3. Attempt to insert the vote. The database schema has a unique constraint
+    // to prevent a user from voting on the same poll twice.
     const { error: voteError } = await supabase
       .from('votes')
       .insert({
         poll_id: pollId,
         poll_option_id: optionId,
-        user_id: userId
+        user_id: user.id
       });
     
     if (voteError) {
-      return { success: false, error: 'Failed to submit vote' };
+      // If the error is a unique constraint violation, provide a user-friendly message.
+      if (voteError.code === '23505') {
+        return { success: false, error: 'You have already voted on this poll.' };
+      }
+      return { success: false, error: `Failed to submit vote: ${voteError.message}` };
     }
     
-    // Revalidate the poll detail and polls list pages
-    // This ensures vote counts are updated immediately in the UI
+    // 4. Revalidate caches to ensure the UI reflects the new vote count.
     revalidatePath(`/polls/${pollId}`);
     revalidatePath('/polls');
     

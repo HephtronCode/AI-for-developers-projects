@@ -1,34 +1,40 @@
 'use server';
 
 /**
- * Poll Management Actions Module
- * 
- * This module provides server actions for managing existing polls in the Polly app.
- * It includes functions for updating and deleting polls, with proper validation,
- * authentication, and authorization checks.
+ * @file Server actions for managing existing polls.
+ * @module lib/actions/poll-actions
+ * @description Provides functions for updating and deleting polls, enforcing validation and authorization.
  */
 
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 import { createServerSupabaseClient } from '../supabase-server';
 import { UpdatePollData } from '../types';
 import { getCurrentUser } from './auth';
 
+// Validation schema for updating a poll.
+const updatePollSchema = z.object({
+  title: z.string().trim().min(1, { message: 'Poll title is required' }),
+  description: z.string().optional(),
+  options: z.array(z.object({
+    text: z.string().trim().min(1, { message: 'Option text cannot be empty' })
+  })).min(2, { message: 'At least two options are required' })
+});
+
+// Validation schema for a poll ID (ensures it's a valid UUID).
+const pollIdSchema = z.object({ pollId: z.string().uuid({ message: 'Invalid Poll ID' }) });
+
 /**
- * Standard response type for poll management actions
+ * Standardized response structure for poll management actions.
  */
 type ActionResponse = {
-  success: boolean;  // Whether the operation was successful
-  error?: string;    // Error message (if unsuccessful)
+  success: boolean;  // Indicates if the operation was successful.
+  error?: string;    // A general error message on failure.
+  errorDetails?: z.ZodIssue[]; // Detailed validation errors from Zod.
 };
 
 /**
- * Centralized error handler for poll management actions
- * 
- * Provides consistent error handling and logging across the module.
- * 
- * @param {unknown} error - The error that occurred
- * @param {string} context - Description of where the error occurred
- * @returns {ActionResponse} Standardized error response
+ * Centralized error handler for poll management actions.
  */
 const handleError = (error: unknown, context: string): ActionResponse => {
   console.error(`Error in ${context}:`, error);
@@ -39,135 +45,58 @@ const handleError = (error: unknown, context: string): ActionResponse => {
 };
 
 /**
- * Verifies if the current user owns a specific poll
- * 
- * This function provides a reusable authentication and authorization check
- * before allowing poll management operations. It:
- * 1. Checks if the user is authenticated
- * 2. Verifies the poll exists
- * 3. Confirms the authenticated user is the poll creator
- *
- * @param {string} pollId - ID of the poll to check ownership for
- * @returns {Promise<Object>} Result of ownership verification with user ID if successful
+ * Revalidates all cached paths where poll data is displayed.
+ * This ensures the UI is up-to-date after a mutation.
+ * @param {string} [pollId] - The ID of the poll that was changed.
  */
-
-// Abstract user authentication and ownership check
-async function verifyPollOwnership(pollId: string): Promise<{ 
-  success: boolean; 
-  userId?: string; 
-  error?: string 
-}> {
-  try {
-    // Get the current user from the session
-    const { user, error: authError } = await getCurrentUser();
-    
-    if (authError || !user) {
-      return { success: false, error: 'You must be logged in to manage polls' };
-    }
-    
-    const userId = user.id;
-    const supabase = createServerSupabaseClient();
-    
-    // Check if the user owns this poll by comparing created_by with current user ID
-    const { data: poll, error: pollError } = await supabase
-      .from('polls')
-      .select('created_by')
-      .eq('id', pollId)
-      .single();
-    
-    if (pollError) {
-      return { success: false, error: 'Poll not found' };
-    }
-    
-    if (poll.created_by !== userId) {
-      return { success: false, error: 'You can only manage your own polls' };
-    }
-    
-    return { success: true, userId };
-  } catch (error) {
-    return handleError(error, 'verifyPollOwnership');
-  }
-}
-
-/**
- * Validates poll data before database operations
- * 
- * Ensures that polls meet minimum requirements:
- * - Must have a non-empty title
- * - Must have at least two options
- * - All options must have non-empty text
- *
- * @param {UpdatePollData} data - The poll data to validate
- * @returns {object} Validation result with valid flag and optional error message
- */
-function validatePollData(data: UpdatePollData): { valid: boolean; error?: string } {
-  if (!data.title || data.title.trim().length === 0) {
-    return { valid: false, error: 'Poll title is required' };
-  }
-  
-  if (!data.options || data.options.length < 2) {
-    return { valid: false, error: 'At least two options are required' };
-  }
-  
-  for (const option of data.options) {
-    if (!option.text || option.text.trim().length === 0) {
-      return { valid: false, error: 'Option text cannot be empty' };
-    }
-  }
-  
-  return { valid: true };
-}
-
-/**
- * Helper function to revalidate all paths that display poll data
- * 
- * This ensures that after a poll is updated or deleted, all views
- * showing poll data are refreshed with the latest information.
- *
- * @param {string} [pollId] - Optional ID of the specific poll that was changed
- */
-
 function revalidatePollPaths(pollId?: string): void {
   revalidatePath('/');
   revalidatePath('/polls');
   if (pollId) {
     revalidatePath(`/polls/${pollId}`);
+    revalidatePath(`/polls/${pollId}/edit`);
   }
 }
 
 /**
- * Deletes a poll and all associated data
+ * Deletes a poll and its associated data.
  * 
- * This function:
- * 1. Verifies the user is authenticated and owns the poll
- * 2. Deletes the poll from the database (cascading to related records)
- * 3. Revalidates relevant paths to update the UI
+ * Authorization is handled by Supabase RLS policies, which ensure
+ * that only the poll's creator can perform this action.
  *
- * @param {string} pollId - ID of the poll to delete
- * @returns {Promise<ActionResponse>} Result of the deletion operation
+ * @param {string} pollId - The ID of the poll to delete.
+ * @returns {Promise<ActionResponse>} The result of the deletion operation.
  */
 export async function deletePoll(pollId: string): Promise<ActionResponse> {
   try {
-    // Verify the user is authenticated and owns this poll
-    const { success, error } = await verifyPollOwnership(pollId);
-    
-    if (!success) {
-      return { success: false, error };
+    // 1. Validate the poll ID format.
+    const validationResult = pollIdSchema.safeParse({ pollId });
+    if (!validationResult.success) {
+      return { 
+        success: false, 
+        error: 'Invalid poll ID provided.',
+        errorDetails: validationResult.error.issues,
+      };
+    }
+
+    // 2. Ensure a user is authenticated. RLS policies will handle authorization.
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
+      return { success: false, error: 'You must be logged in to delete a poll' };
     }
     
     const supabase = createServerSupabaseClient();
     
-    // Delete the poll (cascade will handle related options and votes)
+    // 3. Attempt to delete the poll. RLS enforces that only the owner can succeed.
     const { error: deleteError } = await supabase
       .from('polls')
       .delete()
       .eq('id', pollId);
     
     if (deleteError) {
-      return { success: false, error: 'Failed to delete poll' };
+      return { success: false, error: `Failed to delete poll: ${deleteError.message}` };
     }
     
-    // Revalidate the pages to show updated data
     revalidatePollPaths();
     
     return { success: true };
@@ -177,62 +106,52 @@ export async function deletePoll(pollId: string): Promise<ActionResponse> {
 }
 
 /**
- * Updates an existing poll with new data
+ * Updates an existing poll with new data.
  * 
- * This function:
- * 1. Validates the updated poll data
- * 2. Verifies the user is authenticated and owns the poll
- * 3. Updates the poll title and description
- * 4. Replaces all poll options with the new options
- * 5. Revalidates relevant paths to update the UI
+ * Authorization is handled by Supabase RLS policies, ensuring that only the
+ * poll's creator can perform this action.
  *
- * @param {string} pollId - ID of the poll to update
- * @param {UpdatePollData} data - New poll data
- * @returns {Promise<ActionResponse>} Result of the update operation
+ * @param {string} pollId - The ID of the poll to update.
+ * @param {UpdatePollData} data - The new data for the poll.
+ * @returns {Promise<ActionResponse>} The result of the update operation.
  */
 export async function updatePoll(pollId: string, data: UpdatePollData): Promise<ActionResponse> {
   try {
-    // Validate input data before proceeding
-    const validation = validatePollData(data);
-    if (!validation.valid) {
-      return { success: false, error: validation.error };
+    // 1. Validate both the poll ID and the incoming data.
+    const idValidation = pollIdSchema.safeParse({ pollId });
+    const dataValidation = updatePollSchema.safeParse(data);
+
+    if (!idValidation.success || !dataValidation.success) {
+      const issues = [...(idValidation.success ? [] : idValidation.error.issues), ...(dataValidation.success ? [] : dataValidation.error.issues)];
+      return { success: false, error: 'Invalid data provided.', errorDetails: issues };
     }
-    
-    // Verify the user is authenticated and owns this poll
-    const { success, error } = await verifyPollOwnership(pollId);
-    
-    if (!success) {
-      return { success: false, error };
+
+    // 2. Ensure a user is authenticated. RLS policies will handle authorization.
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
+      return { success: false, error: 'You must be logged in to update a poll' };
     }
     
     const supabase = createServerSupabaseClient();
     
-    // Update the poll title and description
+    // 3. Update the poll details. RLS enforces ownership.
     const { error: updateError } = await supabase
       .from('polls')
       .update({
-        title: data.title,
-        description: data.description || null
+        title: dataValidation.data.title,
+        description: dataValidation.data.description || null
       })
       .eq('id', pollId);
     
     if (updateError) {
-      return { success: false, error: 'Failed to update poll' };
+      return { success: false, error: `Failed to update poll: ${updateError.message}` };
     }
     
-    // Replace all options with new ones by first deleting existing options
-    // This approach is simpler than trying to update, add, and remove options individually
-    const { error: deleteOptionsError } = await supabase
-      .from('poll_options')
-      .delete()
-      .eq('poll_id', pollId);
+    // 4. Replace the existing poll options with the new set.
+    // This is simpler than calculating a diff of which to add, update, or remove.
+    await supabase.from('poll_options').delete().eq('poll_id', pollId);
     
-    if (deleteOptionsError) {
-      return { success: false, error: 'Failed to update poll options' };
-    }
-    
-    // Create new options with the updated data
-    const pollOptions = data.options.map(option => ({
+    const pollOptions = dataValidation.data.options.map(option => ({
       poll_id: pollId,
       option_text: option.text
     }));
@@ -242,10 +161,9 @@ export async function updatePoll(pollId: string, data: UpdatePollData): Promise<
       .insert(pollOptions);
     
     if (createOptionsError) {
-      return { success: false, error: 'Failed to create poll options' };
+      return { success: false, error: `Failed to create new poll options: ${createOptionsError.message}` };
     }
     
-    // Revalidate the pages to show updated data
     revalidatePollPaths(pollId);
     
     return { success: true };
