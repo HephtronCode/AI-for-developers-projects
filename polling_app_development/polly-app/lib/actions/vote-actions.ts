@@ -68,7 +68,20 @@ export async function submitVote(pollId: string, optionId: string): Promise<Vote
     
     const supabase = createServerSupabaseClient();
     
-    // 3. Attempt to insert the vote. The database schema has a unique constraint
+    const supabase = createServerSupabaseClient();
+    
+    // 3. Ensure the option belongs to the poll to protect data integrity.
+    const { data: optionRow, error: optionLookupError } = await supabase
+      .from('poll_options')
+      .select('id')
+      .eq('id', optionId)
+      .eq('poll_id', pollId)
+      .single();
+    if (optionLookupError || !optionRow) {
+      return { success: false, error: 'Selected option does not belong to this poll.' };
+    }
+
+    // 4. Attempt to insert the vote. The database schema has a unique constraint
     // to prevent a user from voting on the same poll twice.
     const { error: voteError } = await supabase
       .from('votes')
@@ -79,11 +92,15 @@ export async function submitVote(pollId: string, optionId: string): Promise<Vote
       });
     
     if (voteError) {
-      // If the error is a unique constraint violation, provide a user-friendly message.
+      // Log details but return safe messages.
+      console.error('submitVote insert error', { code: voteError.code, message: voteError.message });
       if (voteError.code === '23505') {
         return { success: false, error: 'You have already voted on this poll.' };
       }
-      return { success: false, error: `Failed to submit vote: ${voteError.message}` };
+      if (voteError.code === '23503') {
+        return { success: false, error: 'Invalid poll or option.' };
+      }
+      return { success: false, error: 'Failed to submit vote.' };
     }
     
     // 4. Revalidate caches to ensure the UI reflects the new vote count.

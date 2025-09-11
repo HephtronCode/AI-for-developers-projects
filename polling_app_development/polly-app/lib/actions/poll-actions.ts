@@ -149,7 +149,14 @@ export async function updatePoll(pollId: string, data: UpdatePollData): Promise<
     
     // 4. Replace the existing poll options with the new set.
     // This is simpler than calculating a diff of which to add, update, or remove.
-    await supabase.from('poll_options').delete().eq('poll_id', pollId);
+    const { error: deleteOptionsError } = await supabase
+      .from('poll_options')
+      .delete()
+      .eq('poll_id', pollId);
+    
+    if (deleteOptionsError) {
+      return { success: false, error: `Failed to delete existing options: ${deleteOptionsError.message}` };
+    }
     
     const pollOptions = dataValidation.data.options.map(option => ({
       poll_id: pollId,

@@ -90,7 +90,12 @@ export async function createPoll(data: CreatePollData): Promise<CreatePollRespon
       .single();
 
     if (pollError) {
-      return { success: false, error: `Failed to create poll: ${pollError.message}` };
+      console.error('Failed to create poll', {
+        message: pollError.message,
+        stack: (pollError as unknown as { stack?: string }).stack,
+        details: pollError,
+      });
+      return { success: false, error: 'Failed to create poll' };
     }
 
     // Prepare and insert the associated poll options.
@@ -105,8 +110,10 @@ export async function createPoll(data: CreatePollData): Promise<CreatePollRespon
 
     if (optionsError) {
       // If options fail, attempt to roll back the poll creation to prevent orphans.
-      await supabase.from('polls').delete().eq('id', poll.id);
-      return { success: false, error: `Failed to create poll options: ${optionsError.message}` };
+      const { error: rollbackError } = await supabase.from('polls').delete().eq('id', poll.id);
+      if (rollbackError) console.error('Rollback failed for poll', poll.id, rollbackError);
+      console.error('Failed to create poll options:', optionsError);
+      return { success: false, error: 'Failed to create poll options' };
     }
 
     // Invalidate the cache for the polls page to ensure the new poll is displayed.

@@ -57,24 +57,29 @@ This application employs a **defense-in-depth** strategy to protect user data an
 ### Installation & Setup
 
 1.  **Clone the repository:**
+
     ```bash
-    git clone https://github.com/your-username/polly-app.git
+    git clone <repository-url>
     cd polly-app
+
     ```
 
 2.  **Install dependencies:**
+
     ```bash
     npm install
     ```
 
 3.  **Set up Environment Variables:**
     Create a `.env.local` file in the root of the project. This file is for local development and should not be committed to git. Add your Supabase project credentials:
+
     ```
     NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
     NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
     ```
 
 4.  **Set up the Database:**
+
     - In your Supabase project dashboard, navigate to the **SQL Editor**.
     - Open the `schema.sql` file from this repository.
     - Copy its content and run it in the SQL Editor to create all necessary tables, policies, and functions.
