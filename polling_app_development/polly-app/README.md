@@ -108,3 +108,43 @@ polly-app/
 ```
 
 All server actions in `lib/actions/` are documented to explain their purpose, parameters, and security considerations.
+
+## Client-Side Poll Functions
+
+The following utility functions are available for interacting with polls from the client:
+
+### 🗳️ Cast a Vote (Client-Side)
+
+Use the `castVote` function in `lib/poll-client.ts` to submit a vote for a poll option:
+
+```typescript
+import { castVote } from "./lib/poll-client";
+
+// Example usage
+await castVote(pollId, optionId, userId);
+```
+
+- **Parameters:**
+  - `pollId`: The poll's ID
+  - `optionId`: The selected option's ID
+  - `userId`: The voter's user ID
+- **Returns:** `{ success: boolean, error?: string }`
+
+### 📊 Retrieve Poll Results (Client-Side)
+
+Use the `getPollResults` function in `lib/poll-client.ts` to fetch poll results:
+
+```typescript
+import { getPollResults } from "./lib/poll-client";
+
+// Example usage
+const { success, results, error } = await getPollResults(pollId);
+```
+
+- **Parameters:**
+  - `pollId`: The poll's ID
+- **Returns:** `{ success: boolean, results: Array<{ id, text, votes }>, error?: string }`
+
+**Security Note:**
+
+- These functions use the Supabase client and enforce row-level security (RLS) as configured in your Supabase project. Ensure your RLS policies are correct to prevent unauthorized voting or data access.
