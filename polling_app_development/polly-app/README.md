@@ -148,3 +148,36 @@ const { success, results, error } = await getPollResults(pollId);
 **Security Note:**
 
 - These functions use the Supabase client and enforce row-level security (RLS) as configured in your Supabase project. Ensure your RLS policies are correct to prevent unauthorized voting or data access.
+
+## Admin Dashboard
+
+Polly now includes an **Admin Dashboard** for advanced poll and user management.
+
+- Accessible at `/admin` for users with the admin role.
+- Features:
+  - View, edit, and delete any poll
+  - Moderate inappropriate content
+  - Manage user accounts and assign admin roles
+  - Review flagged polls and comments
+
+### Admin Role & Access Control
+
+- Admin access is determined by the user's metadata (`user_metadata.role === "admin"`).
+- The authentication context (`useAuth`) now provides an `isAdmin` flag for client-side access checks.
+- Only users with the admin role can access the dashboard and moderation tools.
+
+### How to Assign Admin Role
+
+- In Supabase, set the `role` field in a user's metadata to `admin`.
+- Example:
+  ```js
+  // In Supabase SQL or dashboard
+  update auth.users set user_metadata = jsonb_set(user_metadata, '{role}', '"admin"') where email = 'admin@example.com';
+  ```
+
+### Usage
+
+- Navigate to `/admin` after signing in as an admin.
+- Use the dashboard to manage polls, users, and moderate flagged content.
+
+---
