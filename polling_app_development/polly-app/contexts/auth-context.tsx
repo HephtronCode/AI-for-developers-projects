@@ -130,6 +130,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 			options: {
 				data: {
 					full_name: name,
+					role: "user", // Default role for new users
 				},
 			},
 		});

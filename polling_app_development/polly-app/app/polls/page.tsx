@@ -12,7 +12,7 @@ export default async function PollsPage() {
   const { user } = await getCurrentUser();
 
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8">
+    <div className="container mx-auto px-4 py-6 sm:px-6 lg:px-8 sm:py-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold gradient-text">
           <svg className="w-6 h-6 inline-block mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -21,7 +21,7 @@ export default async function PollsPage() {
           All Polls
         </h1>
         <Link href="/polls/create" className="w-full sm:w-auto">
-          <Button variant="gradient" className="w-full sm:w-auto py-2 px-4">
+          <Button variant="gradient" className="w-full sm:w-auto py-3 px-6 text-lg">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>

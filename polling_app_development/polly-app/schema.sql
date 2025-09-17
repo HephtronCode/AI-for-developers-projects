@@ -90,6 +90,9 @@ CREATE POLICY "Allow all users to view votes" ON votes FOR SELECT TO public USIN
 -- Allow a user to delete their own vote (change their mind)
 CREATE POLICY "Allow users to delete their own votes" ON votes FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+-- Policy to allow admins to update user roles
+CREATE POLICY "Allow admins to update user roles" ON auth.users FOR UPDATE TO authenticated USING (auth.uid() IN (SELECT id FROM auth.users WHERE raw_user_meta_data->>'role' = 'admin')) WITH CHECK (true);
+
 -- Create a stored procedure to efficiently get poll options with vote counts in a single query
 CREATE OR REPLACE FUNCTION get_options_with_vote_counts(poll_id_param UUID)
 RETURNS TABLE (
@@ -141,3 +144,32 @@ COMMENT ON COLUMN votes.poll_id IS 'The poll being voted on.';
 COMMENT ON COLUMN votes.poll_option_id IS 'The selected option for the poll.';
 COMMENT ON COLUMN votes.user_id IS 'User who cast the vote.';
 COMMENT ON COLUMN votes.created_at IS 'When the vote was cast (UTC).';
+
+
+-- Comments Table
+CREATE TABLE comments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  poll_id UUID REFERENCES polls(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security (RLS) for comments
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+
+-- Policy for comments: All users can read comments
+CREATE POLICY "All users can read comments" ON comments
+  FOR SELECT USING (TRUE);
+
+-- Policy for comments: Authenticated users can create comments
+CREATE POLICY "Authenticated users can create comments" ON comments
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- Policy for comments: Users can delete their own comments
+CREATE POLICY "Users can delete their own comments" ON comments
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Policy for comments: Users can update their own comments (optional, if editing is allowed)
+CREATE POLICY "Users can update their own comments" ON comments
+  FOR UPDATE USING (auth.uid() = user_id);

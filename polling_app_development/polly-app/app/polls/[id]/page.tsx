@@ -14,6 +14,11 @@ import {
 import { Button } from "../../../components/ui/button";
 import { useAuth } from "../../../contexts/auth-context";
 import { PollResultsChart } from "../../../components/ui/poll-results-chart";
+import { getPollById, getOptionsWithVoteCounts } from "../../../lib/actions/get-polls";
+import { vote } from "../../../lib/actions/vote-actions";
+import { toast } from "../../../components/ui/use-toast";
+import { createComment, getComments, deleteComment } from "../../../lib/actions/comment-actions";
+import { Textarea } from "../../../components/ui/textarea";
 
 type Option = {
 	id: string;
@@ -31,6 +36,14 @@ type Poll = {
 	totalVotes: number;
 };
 
+type Comment = {
+	id: string;
+	content: string;
+	created_at: string;
+	user_id: string;
+	profiles: { email: string | null };
+};
+
 export default function PollPage({ params }: { params: { id: string } }) {
 	const router = useRouter();
 	const { user, isLoading: isAuthLoading } = useAuth();
@@ -39,6 +52,10 @@ export default function PollPage({ params }: { params: { id: string } }) {
 	const [selectedOption, setSelectedOption] = useState<string | null>(null);
 	const [hasVoted, setHasVoted] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [comments, setComments] = useState<Comment[]>([]);
+	const [newComment, setNewComment] = useState("");
+	const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
 
 	useEffect(() => {
 		if (!isAuthLoading && !user) {
@@ -47,71 +64,181 @@ export default function PollPage({ params }: { params: { id: string } }) {
 	}, [isAuthLoading, user, router]);
 
 	useEffect(() => {
-		// This is a placeholder for actual API call
-		const fetchPoll = async () => {
+		const fetchPollData = async () => {
+			setIsLoading(true);
+			setError(null);
 			try {
-				// Simulate API call
-				await new Promise((resolve) => setTimeout(resolve, 1000));
+				const { poll: fetchedPoll, error: pollError } = await getPollById(params.id);
+				if (pollError || !fetchedPoll) {
+					setError(pollError || "Poll not found");
+					setPoll(null);
+					return;
+				}
 
-				// Mock data
-				const mockPoll: Poll = {
-					id: params.id,
-					title:
-						params.id === "1" ? "Favorite Programming Language" : "Sample Poll",
-					description: "Please select your favorite option",
-					createdBy: "John Doe",
-					createdAt: "2023-06-15",
-					options: [
-						{ id: "1", text: "JavaScript", votes: 15 },
-						{ id: "2", text: "Python", votes: 12 },
-						{ id: "3", text: "TypeScript", votes: 8 },
-						{ id: "4", text: "Java", votes: 7 },
-					],
-					totalVotes: 42,
-				};
+				const { options: fetchedOptions, error: optionsError } = await getOptionsWithVoteCounts(params.id);
+				if (optionsError || !fetchedOptions) {
+					setError(optionsError || "Could not fetch poll options");
+					setPoll(null);
+					return;
+				}
 
-				setPoll(mockPoll);
-			} catch (error) {
-				console.error("Failed to fetch poll:", error);
+				const totalVotes = fetchedOptions.reduce((sum, option) => sum + option.vote_count, 0);
+
+				setPoll({
+					id: fetchedPoll.id,
+					title: fetchedPoll.title,
+					description: fetchedPoll.description || "",
+					createdBy: fetchedPoll.created_by,
+					createdAt: new Date(fetchedPoll.created_at).toLocaleDateString(),
+					options: fetchedOptions.map(opt => ({ id: opt.id, text: opt.option_text, votes: opt.vote_count })),
+					totalVotes,
+				});
+
+				// Check if user has already voted
+				const userVote = fetchedOptions.find(option => option.has_voted);
+				if (userVote) {
+					setHasVoted(true);
+					setSelectedOption(userVote.id);
+				}
+
+				// Fetch comments
+				const { comments: fetchedComments, error: commentsError } = await getComments(params.id);
+				if (commentsError) {
+					console.error("Failed to fetch comments:", commentsError);
+					// Optionally set an error state for comments specifically
+				} else if (fetchedComments) {
+					setComments(fetchedComments);
+				}
+
+			} catch (err) {
+				console.error("Failed to fetch poll:", err);
+				setError("Failed to load poll data.");
 			} finally {
 				setIsLoading(false);
 			}
 		};
 
-		fetchPoll();
-	}, [params.id]);
+		fetchPollData();
+	}, [params.id, user]);
 
 	const handleVote = async () => {
-		if (!selectedOption || hasVoted || !poll) return;
+		if (!selectedOption || hasVoted || !poll || !user) return;
 
 		setIsSubmitting(true);
+		setError(null);
 
 		try {
-			// This is a placeholder for actual API call
-			// In a real app, you would make an API call to submit the vote
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			const { success, error: voteError } = await vote(poll.id, selectedOption, user.id);
+			if (!success) {
+				setError(voteError || "Failed to submit vote.");
+				toast({
+					title: "Vote Failed",
+					description: voteError || "There was an error submitting your vote.",
+					variant: "destructive",
+				});
+				return;
+			}
 
 			// Update local state to reflect the vote
 			setPoll((prevPoll) => {
 				if (!prevPoll) return null;
 
+				const updatedOptions = prevPoll.options.map((option) => {
+					if (option.id === selectedOption) {
+						return { ...option, votes: option.votes + 1 };
+					}
+					return option;
+				});
+
 				return {
 					...prevPoll,
-					options: prevPoll.options.map((option) => {
-						if (option.id === selectedOption) {
-							return { ...option, votes: option.votes + 1 };
-						}
-						return option;
-					}),
+					options: updatedOptions,
 					totalVotes: prevPoll.totalVotes + 1,
 				};
 			});
 
 			setHasVoted(true);
-		} catch (error) {
-			console.error("Failed to submit vote:", error);
+			toast({
+				title: "Vote Submitted!",
+				description: "Your vote has been successfully recorded.",
+			});
+		} catch (err) {
+			console.error("Failed to submit vote:", err);
+			setError("An unexpected error occurred.");
+			toast({
+				title: "Error",
+				description: "An unexpected error occurred while submitting your vote.",
+				variant: "destructive",
+			});
 		} finally {
 			setIsSubmitting(false);
+		}
+	};
+
+	const handleAddComment = async () => {
+		if (!newComment.trim() || !poll || !user) return;
+
+		setIsCommentSubmitting(true);
+		try {
+			const { success, error: commentError } = await createComment(poll.id, newComment);
+			if (!success) {
+				toast({
+					title: "Failed to add comment",
+					description: commentError || "An error occurred while adding your comment.",
+					variant: "destructive",
+				});
+				return;
+			}
+			setNewComment("");
+			// Re-fetch comments to include the new one
+			const { comments: updatedComments, error: fetchError } = await getComments(poll.id);
+			if (fetchError) {
+				console.error("Failed to re-fetch comments after adding:", fetchError);
+			} else if (updatedComments) {
+				setComments(updatedComments);
+			}
+			toast({
+				title: "Comment Added!",
+				description: "Your comment has been successfully added.",
+			});
+		} catch (err) {
+			console.error("Error adding comment:", err);
+			toast({
+				title: "Error",
+				description: "An unexpected error occurred while adding comment.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsCommentSubmitting(false);
+		}
+	};
+
+	const handleDeleteComment = async (commentId: string) => {
+		if (!user || !poll) return;
+
+		try {
+			const { success, error: deleteError } = await deleteComment(commentId);
+			if (!success) {
+				toast({
+					title: "Failed to delete comment",
+					description: deleteError || "An error occurred while deleting your comment.",
+					variant: "destructive",
+				});
+				return;
+			}
+			// Remove the deleted comment from the local state
+			setComments(comments.filter(comment => comment.id !== commentId));
+			toast({
+				title: "Comment Deleted!",
+				description: "Your comment has been successfully deleted.",
+			});
+		} catch (err) {
+			console.error("Error deleting comment:", err);
+			toast({
+				title: "Error",
+				description: "An unexpected error occurred while deleting comment.",
+				variant: "destructive",
+			});
 		}
 	};
 
@@ -127,6 +254,17 @@ export default function PollPage({ params }: { params: { id: string } }) {
 		return null;
 	}
 
+	if (error) {
+		return (
+			<div className="container mx-auto p-4">
+				<h1 className="text-2xl font-bold mb-6 text-red-500">Error: {error}</h1>
+				<Link href="/polls">
+					<Button>Back to Polls</Button>
+				</Link>
+			</div>
+		);
+	}
+
 	if (!poll) {
 		return (
 			<div className="container mx-auto p-4">
@@ -139,7 +277,7 @@ export default function PollPage({ params }: { params: { id: string } }) {
 	}
 
 	return (
-		<div className="container mx-auto p-4 max-w-3xl">
+		<div className="container mx-auto p-4 max-w-3xl sm:p-6 md:p-8">
 			<Link href="/polls" className="mb-4 inline-block">
 				<Button
 					variant="outline"
@@ -200,73 +338,53 @@ export default function PollPage({ params }: { params: { id: string } }) {
 				<CardContent>
 					<p className="mb-8 text-foreground/80">{poll.description}</p>
 
-					<div className="space-y-4">
-						{poll.options.map((option, index) => {
-							const percentage =
-								poll.totalVotes > 0
-									? Math.round((option.votes / poll.totalVotes) * 100)
-									: 0;
-							return (
-								<div
-									key={option.id}
-									className={`border border-glass-border bg-background/50 backdrop-blur-sm rounded-lg p-4 transition-all duration-300 ${
-										selectedOption === option.id && !hasVoted
-											? "glow border-primary/50"
-											: ""
-									} ${
-										hasVoted
-											? "hover:border-glass-border"
-											: "hover:border-primary/30 cursor-pointer"
-									}`}
-									onClick={() => !hasVoted && setSelectedOption(option.id)}
-								>
-									<div className="flex items-center justify-between mb-2">
-										<div className="flex items-center">
-											<div className="relative mr-3">
-												<input
-													type="radio"
-													id={option.id}
-													name="poll-option"
-													value={option.id}
-													checked={selectedOption === option.id}
-													onChange={() => setSelectedOption(option.id)}
-													disabled={hasVoted}
-													className="appearance-none w-5 h-5 rounded-full border-2 border-primary/50 checked:border-primary checked:bg-primary/20 transition-all duration-300"
-												/>
-												{selectedOption === option.id && (
-													<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-														<div className="w-2 h-2 rounded-full bg-primary glow-sm"></div>
-													</div>
-												)}
+					{!hasVoted && (
+						<div className="space-y-4">
+							{poll.options.map((option, index) => {
+								return (
+									<div
+										key={option.id}
+										className={`border border-glass-border bg-background/50 backdrop-blur-sm rounded-lg p-4 transition-all duration-300 ${
+											selectedOption === option.id
+												? "glow border-primary/50"
+												: "hover:border-primary/30 cursor-pointer"
+										}`}
+										onClick={() => setSelectedOption(option.id)}
+									>
+										<div className="flex items-center justify-between mb-2">
+											<div className="flex items-center">
+												<div className="relative mr-3">
+													<input
+														type="radio"
+														id={option.id}
+														name="poll-option"
+														value={option.id}
+														checked={selectedOption === option.id}
+														onChange={() => setSelectedOption(option.id)}
+														className="appearance-none w-5 h-5 rounded-full border-2 border-primary/50 checked:border-primary checked:bg-primary/20 transition-all duration-300"
+													/>
+													{selectedOption === option.id && (
+														<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+															<div className="w-2 h-2 rounded-full bg-primary glow-sm"></div>
+														</div>
+													)}
+												</div>
+												<label
+													htmlFor={option.id}
+													className="text-md font-medium text-base sm:text-lg"
+												>
+													<span className="text-xs text-primary/70 mr-2 sm:text-sm">
+														{index + 1}.
+													</span>
+													{option.text}
+												</label>
 											</div>
-											<label
-												htmlFor={option.id}
-												className="text-md font-medium"
-											>
-												<span className="text-xs text-primary/70 mr-2">
-													{index + 1}.
-												</span>
-												{option.text}
-											</label>
 										</div>
-										{hasVoted && (
-											<span className="text-sm font-medium bg-primary/10 px-2 py-1 rounded-full">
-												{percentage}% ({option.votes} votes)
-											</span>
-										)}
 									</div>
-									{hasVoted && (
-										<div className="w-full bg-background/50 rounded-full h-3 mt-3 overflow-hidden">
-											<div
-												className="bg-gradient-to-r from-primary/80 to-purple-500/80 h-3 rounded-full transition-all duration-1000 ease-out"
-												style={{ width: `${percentage}%` }}
-											></div>
-										</div>
-									)}
-								</div>
-							);
-						})}
-					</div>
+								);
+							})}
+						</div>
+					)}
 					{/* Chart visualization after voting */}
 					{hasVoted && (
 						<div className="mt-8">
@@ -295,7 +413,7 @@ export default function PollPage({ params }: { params: { id: string } }) {
 							onClick={handleVote}
 							disabled={!selectedOption || isSubmitting}
 							variant="gradient"
-							className="w-full py-5 text-lg"
+							className="w-full py-5 text-lg sm:py-6 sm:text-xl"
 						>
 							{isSubmitting ? (
 								<>
@@ -369,6 +487,73 @@ export default function PollPage({ params }: { params: { id: string } }) {
 						</div>
 					)}
 				</CardFooter>
+			</Card>
+
+			{/* Comments Section */}
+			<Card className="mt-8 glass-card overflow-hidden">
+				<CardHeader>
+					<CardTitle className="text-xl gradient-text sm:text-2xl">Comments ({comments.length})</CardTitle>
+				</CardHeader>
+				<CardContent>
+					{user ? (
+						<div className="mb-6">
+							<Textarea
+								placeholder="Add a comment..."
+								value={newComment}
+								onChange={(e) => setNewComment(e.target.value)}
+								rows={3}
+								className="mb-2 bg-background/50 border-glass-border focus-visible:ring-primary text-base sm:text-lg"
+							/>
+							<Button
+								onClick={handleAddComment}
+								disabled={!newComment.trim() || isCommentSubmitting}
+								variant="gradient"
+								className="w-full py-2 sm:py-3"
+							>
+								{isCommentSubmitting ? "Adding Comment..." : "Add Comment"}
+							</Button>
+						</div>
+					) : (
+						<p className="text-center text-foreground/70 mb-6 text-base sm:text-lg">
+							<Link href="/auth/sign-in" className="text-primary hover:underline">
+								Sign in
+							</Link>{" "}
+							to add a comment.
+						</p>
+					)}
+
+					{comments.length === 0 ? (
+						<p className="text-center text-foreground/70 text-base sm:text-lg">No comments yet. Be the first to comment!</p>
+					) : (
+						<div className="space-y-4">
+							{comments.map((comment) => (
+								<div key={comment.id} className="glass-card p-4 rounded-lg border border-glass-border">
+									<div className="flex items-center justify-between mb-2">
+										<div className="flex items-center">
+											<span className="font-semibold text-primary mr-2 text-sm sm:text-base">
+												{comment.profiles?.email?.split('@')[0] || "Anonymous"}
+											</span>
+											<span className="text-sm text-foreground/60">
+												{new Date(comment.created_at).toLocaleDateString()}
+											</span>
+										</div>
+										{user?.id === comment.user_id && (
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => handleDeleteComment(comment.id)}
+												className="text-red-500 hover:bg-red-500/10"
+											>
+												Delete
+											</Button>
+										)}
+									</div>
+									<p className="text-foreground/80 text-base sm:text-lg">{comment.content}</p>
+								</div>
+							))}
+						</div>
+					)}
+				</CardContent>
 			</Card>
 		</div>
 	);

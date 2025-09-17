@@ -77,7 +77,7 @@ export default function PollCard({ poll, currentUser }: PollCardProps) {
               </div>
             </div>
             {isPollOwner && (
-              <div className="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-all duration-300">
+              <div className="flex gap-2 ml-4 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all duration-300">
                 <Link href={`/polls/${poll.id}/edit`} onClick={(e) => e.stopPropagation()}>
                   <button className="p-2 text-foreground/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-300">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
