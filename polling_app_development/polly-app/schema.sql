@@ -53,6 +53,17 @@ CREATE TRIGGER trg_polls_updated_at
 BEFORE UPDATE ON polls
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- Indexes for performance
+CREATE INDEX idx_comments_poll_id ON comments(poll_id);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
+CREATE INDEX idx_comments_created_at ON comments(created_at DESC);
+
+-- Comments for documentation
+COMMENT ON TABLE comments IS 'User comments on polls.';
+COMMENT ON COLUMN comments.content IS 'The content of the comment.';
+COMMENT ON COLUMN comments.created_at IS 'Timestamp when the comment was created.';
+COMMENT ON COLUMN comments.updated_at IS 'Timestamp when the comment was last updated.';
+
 CREATE TRIGGER trg_poll_options_updated_at
 BEFORE UPDATE ON poll_options
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -91,7 +102,7 @@ CREATE POLICY "Allow all users to view votes" ON votes FOR SELECT TO public USIN
 CREATE POLICY "Allow users to delete their own votes" ON votes FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- Policy to allow admins to update user roles
-CREATE POLICY "Allow admins to update user roles" ON auth.users FOR UPDATE TO authenticated USING (auth.uid() IN (SELECT id FROM auth.users WHERE raw_user_meta_data->>'role' = 'admin')) WITH CHECK (true);
+CREATE POLICY "Allow admins to update user roles" ON auth.users FOR UPDATE TO authenticated USING (auth.uid() IN (SELECT id FROM auth.users WHERE raw_user_meta_data->>'role' = 'admin')) WITH CHECK (old.raw_user_meta_data->>'role' = new.raw_user_meta_data->>'role');
 
 -- Create a stored procedure to efficiently get poll options with vote counts in a single query
 CREATE OR REPLACE FUNCTION get_options_with_vote_counts(poll_id_param UUID)
@@ -148,12 +159,16 @@ COMMENT ON COLUMN votes.created_at IS 'When the vote was cast (UTC).';
 
 -- Comments Table
 CREATE TABLE comments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   poll_id UUID REFERENCES polls(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  content TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Policy for comments: Authenticated users can create comments
+CREATE POLICY "Authenticated users can create comments" ON comments
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id););
+
+CREATE TRIGGER trg_comments_updated_at
+BEFORE UPDATE ON comments
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Enable Row Level Security (RLS) for comments
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;

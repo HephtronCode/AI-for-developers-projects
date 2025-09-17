@@ -6,5 +6,5 @@ mcpServers:
     command: npx
     args:
       - -y
-      - <your-mcp-server>
+      - your-actual-mcp-server-package
     env: {}
